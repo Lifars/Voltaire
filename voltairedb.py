@@ -115,7 +115,7 @@ def get_process(fullpath):
         PSTree and PsXview.
     """
     temp_dict = {}
-    dbconn = sqlite3.connect(fullPath)
+    dbconn = sqlite3.connect(fullpath)
     dbcursor = dbconn.cursor()
     queries = [("PID", "PSList"),
                ("PID", "PSScan"),
@@ -177,11 +177,7 @@ def is_in_range(line):
         if re.search(valid_ip_addresses, word) and not re.search(public_ip_addresses_to_exclude, word):
             add_line_flag = 1
             break
-
-    if add_line_flag == 1:
-        return True
-    else:
-        return False
+    return add_line_flag == 1
 
 def is_valid(args):
     args["src"] = "\"{path}\"".format(path=os.path.abspath(args["src"]))
@@ -214,7 +210,7 @@ def run_command(args, program, command, pid):
     outfile = "{path}ES{number}.db".format(path=path, number=args["es"], command=command)
     outflag = "--output=sqlite --output-file="
     command_with_flag = command
-
+    outlog = open(args["log"], "at")
     if command in commands_with_processes:
         outfile = "{path}ES{number}.db".format(path=path,
                                                number=args["es"])
@@ -239,9 +235,10 @@ def run_command(args, program, command, pid):
                                command=command_with_flag,
                                destflag=outflag,
                                dest=outfile)
-    print "{program} {params}".format(program=program, params=params)
+    outlog.write("{program} {params}\n".format(program=program, params=params))
+    print "Starting {program} {params}".format(program=program, params=params)
     result = call("{program} {params}".format(program=program, params=params),
-                  shell=True)
+                  shell=True, stdout=outlog, stderr=outlog)
     if result == 0:
         print "Completed {command}".format(command=command_with_flag)
     else:
@@ -250,7 +247,7 @@ def run_command(args, program, command, pid):
         path = args["dest"] + os.sep
         outfile = "\"{outfile}\"".format(outfile="{path}ES{number}_autorun.txt".format(path=path, number=args["es"]))
         print "Starting {command}".format(command=command)
-
+        outlog.write("Starting {command}\n".format(command=command))
         if re.search("procdump", outfile) or re.search("dlldump", outfile):
             outflag = "--dump-dir="
             outfile = "{path}{command}".format(path=path, command=command)
@@ -266,7 +263,7 @@ def run_command(args, program, command, pid):
                 src=args["src"], destflag=outflag, dest=outfile)
 
         result = call("{program} {params}".format(program=program, params=params),
-                      shell=True)
+                      shell=True, stdout=outlog, stderr=outlog)
 
         if result == 0:
             print "Completed autorun"
@@ -274,6 +271,7 @@ def run_command(args, program, command, pid):
             print "Error running autorun \n " + params
 
     print "Volatility files saved to {dest}".format(dest=args["dest"])
+    outlog.close()
 
 def process(args):
     args["src"] = os.path.abspath(args["src"])
@@ -294,6 +292,10 @@ if __name__ == "__main__":
                              help="Profile name", required=False)
     scan_parser.add_argument("-e", "--es",
                              help="ES mode", default=1, required=False)
+    scan_parser.add_argument("-l", "--log",
+                             help="Log file (captures output)",
+                             default="voltaire.log",
+                             required=False)
     process_parser = sub_parsers.add_parser("process")
     process_parser.set_defaults(which="process")
     process_parser.add_argument("-s", "--src",
