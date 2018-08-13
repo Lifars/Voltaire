@@ -9,7 +9,6 @@
 # Simplify the regex
 # Adapt the filter_ functions to use the DB as a source and destination
 
-
 import argparse
 import os
 import re
@@ -26,7 +25,7 @@ program = os.path.abspath("vol.exe") if is_windows \
                                      else os.path.abspath("vol.py")
 
 # Valid profiles
-valid_profiles = dict.fromkeys(
+VALID_PROFILES = dict.fromkeys(
     ["VistaSP0x64", "VistaSP0x86", "VistaSP1x64", "VistaSP1x86", "VistaSP2x64",
      "VistaSP2x86", "Win10x64", "Win10x86", "Win2003SP0x86", "Win2003SP1x64",
      "Win2003SP1x86", "Win2003SP2x64", "Win2003SP2x86",
@@ -36,7 +35,7 @@ valid_profiles = dict.fromkeys(
      "Win81U1x86", "Win8SP0x64", "Win8SP0x86", "Win8SP1x64", "Win8SP1x86",
      "WinXPSP1x64", "WinXPSP2x64", "WinXPSP2x86", "WinXPSP3x86"])
 
-commands = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
+COMMANDS = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
             "dumpregistry", "envars", "filescan", "hashdump", "iehistory",
@@ -48,15 +47,15 @@ commands = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "truecryptpassphrase", "truecryptsummary", "unloadedmodules",
             "windows", "wintree"]
 
-commands_with_processes = [
+COMMANDS_WITH_PROCESSES = [
     "apihooks", "dlldump", "malfind", "procdump"
 ]
 
-dump_commands = [
+DUMP_COMMANDS = [
     "dlldump", "procdump", "dumpfiles"
 ]
 
-non_db_coms = ["dumpregistry", "filescan", "iehistory", "screenshot",
+NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptmaster", "truecryptpassphrase",
                "truecryptsummary", "windows", "wintree"]
 
@@ -89,14 +88,14 @@ def individual_scan(args, command):
 def scan(args):
     global program
     is_valid(args)
-    for command in commands:
+    for command in COMMANDS:
         run_command(args, program, command, None)
 
 def scan_pid(args):
     global program
     path = os.path.abspath(args["dest"]) + os.sep
     logfile = "{path}ps_dump.txt".format(path=path)
-    for command in commands_with_processes:
+    for command in COMMANDS_WITH_PROCESSES:
         if not os.path.exists(path + command):
             os.makedirs(path + command)
         with open(logfile) as logf:        # Suppressed encoding='utf-8'
@@ -164,9 +163,9 @@ def filter_mutantscan(args):
 
 def filter_netscan(args):
     path = os.path.abspath(args["dest"]) + os.sep
-    logfile = "{path}ES{number}_{command}.txt".format(path=path, number=args["es"],
+    logfile = "{path}ES{number}_{command}.txt".format(path=path,
+                                                      number=args["es"],
                                                       command="netscan")
-
     outfile = "{path}netscan_filter.txt".format(path=args["dest"] + os.sep)
     open_outfile = open(outfile, "w")       # Suppressed encoding='utf-8'
 
@@ -188,18 +187,14 @@ def is_in_range(line):
 def is_valid(args):
     args["src"] = "\"{path}\"".format(path=os.path.abspath(args["src"]))
     args["dest"] = os.path.abspath(args["dest"])
-
     if "src" in args:
         print "Source file: {src}".format(src=args["src"])
-
     if "dest" in args:
         if not os.path.exists(args["dest"]):
             os.makedirs(args["dest"])
-
         print "Destination directory: {dest}".format(dest=args["dest"])
-
     if "profile" in args:
-        if args["profile"] in valid_profiles:
+        if args["profile"] in VALID_PROFILES:
             print "Profile name: {profile}".format(profile=args["profile"])
         else:
             print "Profile not valid: {profile}".format(profile=args["profile"])
@@ -213,7 +208,7 @@ def is_valid(args):
 
 def run_command(args, program, command, pid):
     path = args["dest"] + os.sep
-    if command in non_db_coms:
+    if command in NON_DB_COMS:
         outfile = "{path}ES{number}-{command}.txt".format(path=path,
                                                           number=args["es"],
                                                           command=command)
@@ -225,17 +220,19 @@ def run_command(args, program, command, pid):
         outflag = "--output=sqlite --output-file="
     command_with_flag = command
     outlog = open(args["log"], "at")
-    if command in commands_with_processes:
+    if command in COMMANDS_WITH_PROCESSES:
         outfile = "{path}ES{number}.db".format(path=path,
                                                number=args["es"])
-        if command in dump_commands:
+        if command in DUMP_COMMANDS:
             outflag = "--dump-dir="
             outfile = "{path}{command}".format(path=path, command=command)
             if re.search("dlldump", command):
-                outfile += "{command}_{pid}".format(command=os.sep + command, pid=pid)
+                outfile += "{command}_{pid}".format(command=os.sep + command,
+                                                    pid=pid)
                 if not os.path.exists(outfile):
                     os.makedirs(outfile)
-        command_with_flag = "{command} -p {pid}".format(command=command, pid=pid)
+        command_with_flag = "{command} -p {pid}".format(command=command,
+                                                        pid=pid)
     if "profile" in args:
         params = "-f {src} --profile={profile} {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
@@ -298,8 +295,9 @@ def process(args):
 
 # Main
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Batches common Volatility commands")
-    sub_parsers = parser.add_subparsers(dest="subparser_name")  # this line changed
+    parser = argparse.ArgumentParser(description="Batches " + \
+                                                 "common Volatility commands")
+    sub_parsers = parser.add_subparsers(dest="subparser_name")
     scan_parser = sub_parsers.add_parser('scan')
     scan_parser.set_defaults(which="scan")
     scan_parser.add_argument("-s", "--src",
