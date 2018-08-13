@@ -56,7 +56,7 @@ dump_commands = [
     "dlldump", "procdump", "dumpfiles"
 ]
 
-non_db_coms = ["dumpregistry", "iehistory", "screenshot",
+non_db_coms = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptmaster", "truecryptpassphrase",
                "truecryptsummary", "windows", "wintree"]
 
@@ -179,7 +179,8 @@ def filter_netscan(args):
 def is_in_range(line):
     add_line_flag = 0
     for word in line.split():
-        if re.search(valid_ip_addresses, word) and not re.search(public_ip_addresses_to_exclude, word):
+        if re.search(valid_ip_addresses, word) and \
+           not re.search(public_ip_addresses_to_exclude, word):
             add_line_flag = 1
             break
     return add_line_flag == 1
@@ -213,10 +214,14 @@ def is_valid(args):
 def run_command(args, program, command, pid):
     path = args["dest"] + os.sep
     if command in non_db_coms:
-        outfile = "{path}ES{number}-{command}.txt".format(path=path, number=args["es"], command=command)
+        outfile = "{path}ES{number}-{command}.txt".format(path=path,
+                                                          number=args["es"],
+                                                          command=command)
         outflag = "--output=text --output-file="
     else:
-        outfile = "{path}ES{number}.sql".format(path=path, number=args["es"], command=command)
+        outfile = "{path}ES{number}.db".format(path=path,
+                                               number=args["es"],
+                                               command=command)
         outflag = "--output=sqlite --output-file="
     command_with_flag = command
     outlog = open(args["log"], "at")
@@ -252,34 +257,39 @@ def run_command(args, program, command, pid):
         print "Completed {command}".format(command=command_with_flag)
     else:
         print "Error running {command}".format(command=command_with_flag)
-    if is_windows:
-        path = args["dest"] + os.sep
-        outfile = "\"{outfile}\"".format(outfile="{path}ES{number}_autorun.txt".format(path=path, number=args["es"]))
-        print "Starting {command}".format(command=command)
-        outlog.write("Starting {command}\n".format(command=command))
-        if re.search("procdump", outfile) or re.search("dlldump", outfile):
-            outflag = "--dump-dir="
-            outfile = "{path}{command}".format(path=path, command=command)
-            if re.search("dlldump", command):
-                outfile = outfile + "_{pid}".format(pid=pid)
-
-        if "profile" in args:
-            params = "-f {src} --profile={profile} printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
-                src=args["src"], profile=args["profile"], destflag=outflag, dest=outfile)
-
-        else:
-            params = "-f {src} printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
-                src=args["src"], destflag=outflag, dest=outfile)
-
-        result = call("{program} {params}".format(program=program, params=params),
-                      shell=True, stdout=outlog, stderr=outlog)
-
-        if result == 0:
-            print "Completed autorun"
-        else:
-            print "Error running autorun \n " + params
-
     print "Volatility files saved to {dest}".format(dest=args["dest"])
+    outlog.close()
+
+def export_autorun(args):
+    """ Dumps all the keys related to autorun, if present.
+    """
+    path = args["dest"] + os.sep
+    outfile = "{path}ES{number}_autorun.txt".format(path=path,
+                                                    number=args["es"])
+    outlog = open(args["log"], "at")
+    print "Starting exporting autorun keys."
+    outlog.write("Starting exporting autorun keys.\n")
+    if "profile" in args:
+        params = "-f {src} --profile={profile} " + \
+                 "printkey -K \"software\\microsoft\\windows" + \
+                 "\\currentversion\\run\" " + \
+                 "--output=text --output-file={dest}"
+        params = params.format(src=args["src"],
+                               profile=args["profile"],
+                               dest=outfile)
+    else:
+        params = "-f {src} printkey -K \"software\\microsoft\\windows" + \
+                 "\\currentVersion\\run\" " + \
+                 "--output=text --output-file={dest}"
+        params = params.format(src=args["src"],
+                               dest=outfile)
+    result = call("{program} {params}".format(program=program,
+                                              params=params),
+                  shell=True, stdout=outlog, stderr=outlog)
+    if result == 0:
+        print "Completed autorun."
+    else:
+        print "Error running autorun \n " + params
     outlog.close()
 
 def process(args):
@@ -318,8 +328,9 @@ if __name__ == "__main__":
         scan(args)
         dump_pid(args)
         scan_pid(args)
-        filter_mutantscan(args)
-        filter_netscan(args)
+        export_autorun(args)
+        #filter_mutantscan(args)
+        #filter_netscan(args)
     elif subcommand == "process":
         process(args)
     else:
