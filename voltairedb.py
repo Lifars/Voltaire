@@ -5,9 +5,10 @@
 # TODO
 # Add comments in functions
 # Reformat code to conform to writing styles
-# Move the determination of the OS command to run outside of functions
 # Keep fixing the issues reported by pylint
 # Simplify the regex
+# Adapt the filter_ functions to use the DB as a source and destination
+
 
 import argparse
 import os
@@ -40,7 +41,7 @@ commands = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
             "dumpregistry", "envars", "filescan", "hashdump", "iehistory",
             "ldrmodules", "lsadump", "malfind", "messagehooks",
-            "moddumpmodscan", "modules", "mutantscan -s", "netscan",
+            "modscan", "modules", "mutantscan -s", "netscan",
             "notepad", "pslist", "psscan", "pstree", "psxview", "screenshot",
             "sessions", "shellbags", "shimcache", "shutdowntime", "sockets",
             "sockscan", "svcscan", "timeliner", "truecryptmaster",
@@ -52,8 +53,12 @@ commands_with_processes = [
 ]
 
 dump_commands = [
-    "dlldump", "procdump"
+    "dlldump", "procdump", "dumpfiles"
 ]
+
+non_db_coms = ["dumpregistry", "iehistory", "screenshot",
+               "truecryptmaster", "truecryptpassphrase",
+               "truecryptsummary", "windows", "wintree"]
 
 # Regex string of public ip addresses that are excluded
 public_ip_addresses_to_exclude = '|'.join([
@@ -207,8 +212,12 @@ def is_valid(args):
 
 def run_command(args, program, command, pid):
     path = args["dest"] + os.sep
-    outfile = "{path}ES{number}.db".format(path=path, number=args["es"], command=command)
-    outflag = "--output=sqlite --output-file="
+    if command in non_db_coms:
+        outfile = "{path}ES{number}-{command}.txt".format(path=path, number=args["es"], command=command)
+        outflag = "--output=text --output-file="
+    else:
+        outfile = "{path}ES{number}.sql".format(path=path, number=args["es"], command=command)
+        outflag = "--output=sqlite --output-file="
     command_with_flag = command
     outlog = open(args["log"], "at")
     if command in commands_with_processes:
