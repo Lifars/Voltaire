@@ -1,0 +1,8 @@
+List of things still being worked on.
+
+# Add comments in functions
+# Keep fixing the issues reported by pylint
+# Simplify the regex
+# Adapt the filter_ functions to use the DB as a source and destination
+# Add hashing of dumped objects and files
+# Add new registry keys to export
