@@ -2,15 +2,6 @@
 # voltairedb.py
 # Short rewrite of voltaire.py to make use of the SQLite3 renderer.
 
-# TODO
-# Add comments in functions
-# Keep fixing the issues reported by pylint
-# Simplify the regex
-# Adapt the filter_ functions to use the DB as a source and destination
-# Fix malfind -p ...
-# Add hashing of dumped objects and files
-# Add new commands
-
 import argparse
 import os
 import re
@@ -59,7 +50,7 @@ DUMP_COMMANDS = [
 
 NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptmaster", "truecryptpassphrase",
-               "truecryptsummary", "windows", "wintree"]
+               "truecryptsummary", "windows", "wintree", "userassist"]
 
 # Regex string of public ip addresses that are excluded
 PUBLIC_IP_ADDRESSES_TO_EXCLUDE = '|'.join([
