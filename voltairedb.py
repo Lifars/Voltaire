@@ -4,10 +4,12 @@
 
 # TODO
 # Add comments in functions
-# Reformat code to conform to writing styles
 # Keep fixing the issues reported by pylint
 # Simplify the regex
 # Adapt the filter_ functions to use the DB as a source and destination
+# Fix malfind -p ...
+# Add hashing of dumped objects and files
+# Add new commands
 
 import argparse
 import os
@@ -19,9 +21,9 @@ import sqlite3
 
 # Global variables
 # OS we are using
-is_windows = _platform == "win32"
+IS_WINDOWS = _platform == "win32"
 
-program = os.path.abspath("vol.exe") if is_windows \
+PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
                                      else os.path.abspath("vol.py")
 
 # Valid profiles
@@ -45,7 +47,7 @@ COMMANDS = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "sessions", "shellbags", "shimcache", "shutdowntime", "sockets",
             "sockscan", "svcscan", "timeliner", "truecryptmaster",
             "truecryptpassphrase", "truecryptsummary", "unloadedmodules",
-            "windows", "wintree"]
+            "windows", "wintree", "connections", "userassist"]
 
 COMMANDS_WITH_PROCESSES = [
     "apihooks", "dlldump", "malfind", "procdump"
@@ -60,40 +62,64 @@ NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptsummary", "windows", "wintree"]
 
 # Regex string of public ip addresses that are excluded
-public_ip_addresses_to_exclude = '|'.join([
-    "(^0\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^10\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^100\.(6[4-9]|[7-9][0-9]|1([0-1][0-9]|2[0-7]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^127\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^169\.254\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^172\.(1[6-9]|2[0-9]|3[0-1])\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+PUBLIC_IP_ADDRESSES_TO_EXCLUDE = '|'.join([
+    "(^0\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^10\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^100\.(6[4-9]|[7-9][0-9]|1([0-1][0-9]|2[0-7]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^127\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^169\.254\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^172\.(1[6-9]|2[0-9]|3[0-1])\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
     "(^192\.0\.0\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
     "(^192\.0\.2\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
     "(^192\.88\.99\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^192\.168\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^198\.(1[8-9])\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^192\.168\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^198\.(1[8-9])\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
     "(^198\.51\.100\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
     "(^203\.0\.113\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^(2(2[4-9]|3[0-9]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
-    "(^(2(4[0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))"])
+    "(^(2(2[4-9]|3[0-9]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))",
+    "(^(2(4[0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\." + \
+    "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5])))"])
 
 # Regex to see if a string is an ip address
-valid_ip_addresses = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))"
+VALID_IP_ADDRESSES = \
+                   "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))" + \
+                   "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))" + \
+                   "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))" + \
+                   "\.([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))"
 
 # Functions
-def individual_scan(args, command):
-    global program
-    run_command(args, program, command, None)
+def individual_scan(comargs, command):
+    global PROGRAM
+    run_command(comargs, PROGRAM, command, None)
 
-def scan(args):
-    global program
-    is_valid(args)
+def scan(comargs):
+    global PROGRAM
+    is_valid(comargs)
     for command in COMMANDS:
-        run_command(args, program, command, None)
+        run_command(comargs, PROGRAM, command, None)
 
-def scan_pid(args):
-    global program
-    path = os.path.abspath(args["dest"]) + os.sep
+def scan_pid(comargs):
+    global PROGRAM
+    path = os.path.abspath(comargs["dest"]) + os.sep
     logfile = "{path}ps_dump.txt".format(path=path)
     for command in COMMANDS_WITH_PROCESSES:
         if not os.path.exists(path + command):
@@ -101,7 +127,7 @@ def scan_pid(args):
         with open(logfile) as logf:        # Suppressed encoding='utf-8'
             for line in logf:
                 word = line.split()
-                run_command(args, program, command, word[0])
+                run_command(comargs, PROGRAM, command, word[0])
 
 def dump_pid(args):
     path = os.path.abspath(args["dest"]) + os.sep
@@ -143,7 +169,7 @@ def filter_mutantscan(args):
     outfile = "{path}mutantscan_filter.txt".format(path=args["dest"] + os.sep)
     open_outfile = open(outfile, "w")       # Suppressed encoding='utf-8'
 
-    nameMap = {}
+    name_map = {}
 
     with open(logfile) as f:                # Suppressed encoding='utf-8'
         add_line_flag = 0
@@ -151,15 +177,16 @@ def filter_mutantscan(args):
         open_outfile.write(next(f))
         for line in f:
             for word in line.split():
-                if not re.search("0x\w{16}|\.\.\.", word) and not word.isdigit():
+                if not re.search("0x\w{16}|\.\.\.", word) and \
+                   not word.isdigit():
                     add_line_flag = 1
 
             if add_line_flag == 1:
-                nameMap[word] = line
+                name_map[word] = line
                 add_line_flag = 0
 
-        for key in sorted(nameMap, key=lambda v: v.upper()):
-            open_outfile.write(nameMap[key])
+        for key in sorted(name_map, key=lambda v: v.upper()):
+            open_outfile.write(name_map[key])
 
 def filter_netscan(args):
     path = os.path.abspath(args["dest"]) + os.sep
@@ -178,8 +205,8 @@ def filter_netscan(args):
 def is_in_range(line):
     add_line_flag = 0
     for word in line.split():
-        if re.search(valid_ip_addresses, word) and \
-           not re.search(public_ip_addresses_to_exclude, word):
+        if re.search(VALID_IP_ADDRESSES, word) and \
+           not re.search(PUBLIC_IP_ADDRESSES_TO_EXCLUDE, word):
             add_line_flag = 1
             break
     return add_line_flag == 1
@@ -206,7 +233,7 @@ def is_valid(args):
     else:
         print "NOTICE: No ES set. Defaulting to ES=1."
 
-def run_command(args, program, command, pid):
+def run_command(args, executable, command, pid):
     path = args["dest"] + os.sep
     if command in NON_DB_COMS:
         outfile = "{path}ES{number}-{command}.txt".format(path=path,
@@ -246,9 +273,12 @@ def run_command(args, program, command, pid):
                                command=command_with_flag,
                                destflag=outflag,
                                dest=outfile)
-    outlog.write("{program} {params}\n".format(program=program, params=params))
-    print "Starting {program} {params}".format(program=program, params=params)
-    result = call("{program} {params}".format(program=program, params=params),
+    outlog.write("{program} {params}\n".format(program=executable,
+                                               params=params))
+    print "Starting {program} {params}".format(program=executable,
+                                               params=params)
+    result = call("{program} {params}".format(program=executable,
+                                              params=params),
                   shell=True, stdout=outlog, stderr=outlog)
     if result == 0:
         print "Completed {command}".format(command=command_with_flag)
@@ -280,7 +310,7 @@ def export_autorun(args):
                  "--output=text --output-file={dest}"
         params = params.format(src=args["src"],
                                dest=outfile)
-    result = call("{program} {params}".format(program=program,
+    result = call("{program} {params}".format(program=PROGRAM,
                                               params=params),
                   shell=True, stdout=outlog, stderr=outlog)
     if result == 0:
