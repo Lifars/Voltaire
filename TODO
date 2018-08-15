@@ -6,3 +6,14 @@ List of things still being worked on.
 # Adapt the filter_ functions to use the DB as a source and destination
 # Add hashing of dumped objects and files
 # Add new registry keys to export
+
+Parsers/plugins/analyzers
+=========================
+
+* svchost.exe not under services.exe
+* nametwist on svchost.exe (svch0st.exe, svchos1.exe ...)
+* *.exe spawned from a list of executables 
+  (iexplore.exe, notepad.exe, wordpad.exe, ...)
+* check conn* and net* IP against Anomali/Threatstream, OTX ...
+* DLL included from user profiles, especially "AppLow"
+
