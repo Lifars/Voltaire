@@ -8,6 +8,7 @@ import sys
 from sys import platform as _platform
 from subprocess import call
 import sqlite3
+import tempfile
 
 # Global variables
 # OS we are using
@@ -171,6 +172,57 @@ def export_autorun(args):
 def process(args):
     args["src"] = os.path.abspath(args["src"])
     args["dest"] = os.path.abspath(args["dest"])
+    
+def detect_profile(program, comargs):
+    """ Run imageinfo on the provided image, ask the user to choose
+        a profile if more than one profile are suggested.
+    """
+    print "Attempting automatic detection of the image profile."
+    tempoutput = tempfile.TemporaryFile("rwt")
+    params = "imageinfo -f {src}".format(src=comargs['src'])
+    result = call("{program} {params}".format(program=program,
+                                              params=params),
+                  shell=True, stdout=tempoutput)
+    if result != 0:
+        print "imageinfo failed."
+        return False
+    tempoutput.seek(0)
+    profline = ""
+    for i in tempoutput:
+        if i.find("Suggested Profile(s) :") > 0:
+            # We got the line.
+            profline = i.rstrip()
+            break
+    tempoutput.close()
+    if profline == "":
+        # imageinfo could not identify at least one profile. Abort.
+        return False
+    inst_index = profline.find("(Instantiated")
+    profline = profline[33:inst_index]
+    profiles = profline.split(",")
+    if profiles == []:
+        return False
+    if len(profiles) == 1:
+        comargs['profile'] = profiles[0].rstrip().lstrip()
+        return True
+    valid = False
+    while not valid:
+        print "Choose a profile."
+        print "================="
+        print ""
+        nprof = 0
+        for entry in profiles:
+            nprof += 1
+            print "{id:>2} : {profile}".format(id=nprof,
+                                               profile=entry.rstrip().\
+                                                             lstrip())
+        print ""
+        choice = raw_input("Profile number? ")
+        if int(choice) > 0 and int(choice) <= nprof:
+            valid = True
+        print "Please select a profile."
+    comargs["profile"] = profiles[int(choice)-1].lstrip().rstrip()
+    return True
 
 # Main
 if __name__ == "__main__":
@@ -202,8 +254,14 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     subcommand = args.get("which", "")
     if subcommand == "scan":
+        if args["profile"] is None:
+            # Profile detection
+            if not detect_profile(PROGRAM, args):
+                # Profile detection unsuccessful.
+                print "Profile detection failed. Please provide a valid profile"
+                sys.exit(-1)
         scan(args)
-        export_autorun(args)
+        #export_autorun(args)
     elif subcommand == "process":
         process(args)
     else:
