@@ -204,6 +204,50 @@ def run_text_report(comargs):
                 freport.write("\n")
             tempoutput.close()
 
+def dump_malfind(comargs):
+    """ Dumps the processes identified by malfind """
+    path = args["dest"] + os.sep
+    dbfile = "{path}ES{number}.db".format(path=path,
+                                          number=args["es"])
+    dbconn = sqlite3.connect(dbfile)
+    dbcursor = dbconn.cursor()
+    # Create the table
+    query = """create table if not exists malprocdump (pid integer primary key,
+                                                       content blob)"""
+    dbcursor.execute(query)
+    dbconn.commit()
+    query = "select distinct pid from malfind"
+    for row in dbcursor.execute(query):
+        pid = row[0]
+        print "Dumping process for PID %s" % (pid)
+        output = tempfile.mkdtemp()
+        dumpargs = "--dump-dir=%s" % (output)
+        profargs = "--profile=%s" % (comargs['profile'])
+        srcargs = "-f %s" % (comargs["src"])
+        pidargs = "-p %s" % (pid)
+        scode = call("%s procdump %s %s %s %s"%(PROGRAM,
+                                                profargs,
+                                                srcargs,
+                                                dumpargs,
+                                                pidargs),
+                     shell=True)
+        if scode != 0:
+            print "Dumping process memory for pid %s failed." % (pid)
+        else:
+            # Get all files in the temporary output
+            dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
+                      if os.path.isfile(os.path.join(output, ent))]
+            dfile = open(dfiles[0], "rb")
+            filec = dfile.read()
+            dfile.close()
+            dbcursor2 = dbconn.cursor()
+            dbcursor2.execute("insert into malprocdump "+
+                              "(pid,content) values (?,?)",
+                              (pid, sqlite3.Binary(filec)))
+            dbconn.commit()
+            os.unlink(dfiles[0])
+        os.rmdir(output)
+
 def process(args):
     args["src"] = os.path.abspath(args["src"])
     args["dest"] = os.path.abspath(args["dest"])
@@ -297,6 +341,7 @@ if __name__ == "__main__":
                 sys.exit(-1)
         scan(args)
         run_text_report(args)
+        dump_malfind(args)
         #export_autorun(args)
     elif subcommand == "process":
         process(args)
