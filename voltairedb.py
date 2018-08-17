@@ -44,6 +44,11 @@ NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptmaster", "truecryptpassphrase",
                "truecryptsummary", "windows", "wintree", "userassist"]
 
+# Title for report and commands that generate a text output
+
+TEXT_COMMANDS = [("AmCache Listing", "amcache"),
+                 ("Malware Finder", "malfind")]
+
 # Functions
 def individual_scan(comargs, command):
     global PROGRAM
@@ -169,10 +174,40 @@ def export_autorun(args):
         print "Error running autorun \n " + params
     outlog.close()
 
+def run_text_report(comargs):
+    """ Generates a text report from a few commands. """
+    # Report name
+    path = args["dest"] + os.sep
+    outfile = "{path}ES{number}_report.txt".format(path=path,
+                                                   number=args["es"])
+    outargs = "--output=text"
+    profargs = "--profile=%s"%(comargs['profile'])
+    srcargs = "-f %s"%(comargs["src"])
+    with open(outfile, "wt") as freport:
+        freport.write("Volatility Memory Report\n")
+        freport.write("========================\n\n")
+        for (title, command) in TEXT_COMMANDS:
+            freport.write(title+"\n")
+            freport.write("*"*len(title)+"\n\n")
+            tempoutput = tempfile.TemporaryFile("rwt")
+            scode = call("%s %s %s %s %s"%(PROGRAM, command, outargs,
+                                           profargs, srcargs),
+                         stdout=tempoutput,
+                         shell=True)
+            if scode != 0:
+                freport.write("Command '%s' did not complete successfully\n\n"%\
+                              (command))
+            else:
+                tempoutput.seek(0)
+                for outline in tempoutput:
+                    freport.write(outline)
+                freport.write("\n")
+            tempoutput.close()
+
 def process(args):
     args["src"] = os.path.abspath(args["src"])
     args["dest"] = os.path.abspath(args["dest"])
-    
+
 def detect_profile(program, comargs):
     """ Run imageinfo on the provided image, ask the user to choose
         a profile if more than one profile are suggested.
@@ -261,6 +296,7 @@ if __name__ == "__main__":
                 print "Profile detection failed. Please provide a valid profile"
                 sys.exit(-1)
         scan(args)
+        run_text_report(args)
         #export_autorun(args)
     elif subcommand == "process":
         process(args)
