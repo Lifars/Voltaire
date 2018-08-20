@@ -237,6 +237,9 @@ def dump_malfind(comargs):
             # Get all files in the temporary output
             dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
                       if os.path.isfile(os.path.join(output, ent))]
+            if dfiles == []:
+                print "Process not in memory."
+                continue
             dfile = open(dfiles[0], "rb")
             filec = dfile.read()
             dfile.close()
@@ -247,7 +250,222 @@ def dump_malfind(comargs):
             dbconn.commit()
             os.unlink(dfiles[0])
         os.rmdir(output)
+def run_sans_tests(comargs):
+    """ Uses the SANS 'Know Normal - Find Evil' criterion.
+        Should be changed at some point to use graphes instead
+        of atomic tests.
+    """
+    path = args["dest"] + os.sep
+    dbfile = "{path}ES{number}.db".format(path=path,
+                                          number=args["es"])
+    outfile = "{path}ES{number}_report.txt".format(path=path,
+                                                   number=args["es"])                                          
+    dbconn = sqlite3.connect(dbfile)
+    dbcursor = dbconn.cursor()
+    with open(outfile, "at") as freport:
+        freport.write("SANS 'Know Normal ... Find Evil'\n")
+        freport.write("********************************\n\n")
+        freport.write("System\n")
+        freport.write("------\n\n")
+        query = """select * from PsTree where Name = "system" collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        roguefound = False
+        for row in results:
+            if row[fieldmap["PPid"]] != '0':
+                freport.write("Potential rogue System process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                              format(pid=row[fieldmap["Pid"]],
+                                     ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue System process found.\n\n")
+        freport.write("SMSS.EXE\n")
+        freport.write("--------\n\n")
+        query = """select * from PsTree where Name = "system" collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        # Get the PID of the first System process
+        syspid = results.fetchone()[fieldmap["Pid"]]
+        query = """select * from PsTree where Name = "smss.exe" collate nocase
+                """
+        roguefound = False
+        for row in dbcursor.execute(query):
+            if row[fieldmap["PPid"]] != syspid:
+                freport.write("Potential rogue smss.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                              format(pid=row[fieldmap["Pid"]],
+                                     ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue smss.exe process found.\n\n")  
+        freport.write("WININIT.EXE\n")
+        freport.write("--------\n\n")
+        query = """select * from PsTree where Name = "wininit.exe" 
+                   collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        roguefound = False
+        nprocess = 0
+        for row in results:
+            nprocess += 1
+            wippid = row[fieldmap["PPid"]]
+            winpid = row[fieldmap["Pid"]]
+            # Determine if there is a parent process still there
+            wiquery = """select count(*) from pstree where Pid = ?"""
+            wiresult = dbcursor.execute(wiquery, (wippid,))
+            if wiresult.fetchone()[0] != 0:
+                freport.write("Potential rogue wininit.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                               format(pid=row[fieldmap["Pid"]],
+                                      ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue wininit.exe process found.\n\n")
+        freport.write("SERVICES.EXE\n")
+        freport.write("------------\n\n")            
+        query = """select * from PsTree where Name = "services.exe"
+                   collate nocase"""
+        roguefound = False
+        for row in dbcursor.execute(query):
+            if row[fieldmap["PPid"]] != winpid:
+                freport.write("Potential rogue services.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                              format(pid=row[fieldmap["Pid"]],
+                                     ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue services.exe process found.\n\n")    
+            
+        freport.write("TASKHOST.EXE\n")
+        freport.write("------------\n\n")
+        query = """select * from PsTree where Name = "services.exe" 
+                   collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        # Get the PID of the first System process
+        svcpid = results.fetchone()[fieldmap["Pid"]]
+        query = """select * from PsTree where Name = "taskhost.exe"
+                   collate nocase"""
+        roguefound = False
+        for row in dbcursor.execute(query):
+            if row[fieldmap["PPid"]] != svcpid:
+                freport.write("Potential rogue taskhost.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                              format(pid=row[fieldmap["Pid"]],
+                                     ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue taskhost.exe process found.\n\n")           
+            
+        freport.write("LSASS.EXE\n")
+        freport.write("---------\n\n")
+        query = """select * from PsTree where Name = "wininit.exe" 
+                   collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        # Get the PID of the first System process
+        winpid = results.fetchone()[fieldmap["Pid"]]
+        query = """select * from PsTree where Name = "lsass.exe"
+                   collate nocase"""
+        roguefound = False
+        for row in dbcursor.execute(query):
+            if row[fieldmap["PPid"]] != winpid:
+                freport.write("Potential rogue lsass.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                              format(pid=row[fieldmap["Pid"]],
+                                     ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue lsass.exe process found.\n\n")           
 
+
+        freport.write("CSRSS.EXE\n")
+        freport.write("---------\n\n")
+        query = """select * from PsTree where Name = "csrss.exe" 
+                   collate nocase"""
+        results = dbcursor.execute(query)
+        # Map Name, Pid and Ppid
+        nfield = 0
+        fieldmap = {}
+        for field in dbcursor.description:
+            if field[0] == "Name":
+                fieldmap["Name"] = nfield
+            elif field[0] == "Pid":
+                fieldmap["Pid"] = nfield
+            elif field[0] == "PPid":
+                fieldmap["PPid"] = nfield
+            nfield += 1
+        roguefound = False
+        nprocess = 0
+        for row in results:
+            nprocess += 1
+            csrpid = row[fieldmap["PPid"]]
+            # Determine if there is a parent process still there
+            wiquery = """select count(*) from pstree where Pid = ?"""
+            wiresult = dbcursor.execute(wiquery, (csrpid,))
+            if wiresult.fetchone()[0] != 0:
+                freport.write("Potential rogue csrss.exe process.\n")
+                freport.write("PID: {pid:>6} PPID: {ppid:>6}\n\n".\
+                               format(pid=row[fieldmap["Pid"]],
+                                      ppid=row[fieldmap["PPid"]]))
+                roguefound = True
+        if not roguefound:
+            freport.write("No rogue csrss.exe process found.\n\n")
+
+                       
+    dbcursor.close()
+    dbconn.close()
 def process(args):
     args["src"] = os.path.abspath(args["src"])
     args["dest"] = os.path.abspath(args["dest"])
@@ -342,6 +560,7 @@ if __name__ == "__main__":
         scan(args)
         run_text_report(args)
         dump_malfind(args)
+        run_sans_tests(args)
         #export_autorun(args)
     elif subcommand == "process":
         process(args)
