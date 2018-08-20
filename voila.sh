@@ -40,7 +40,7 @@ function check_root()
 # description: check if voltaire script is present.
 function check_voltaire()
 {
-    if [ ! -x "${voltaire}" ]; then
+    if [ ! -f "${voltaire}" ]; then
         echo "error: we couldn't find ${voltaire} script."
         exit 1
     fi
