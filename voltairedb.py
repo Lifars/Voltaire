@@ -31,6 +31,10 @@ SANS_TEST = { "Win2003":
                         (("svchost.exe", "svchost.exe", "services.exe"),
                          ("System", "system", "<unknown>"),
                          ("smss.exe", "smss.exe", "system")),
+              "WinXP": 
+                        (("svchost.exe", "svchost.exe", "services.exe"),
+                         ("System", "system", "<unknown>"),
+                         ("smss.exe", "smss.exe", "system")),                         
               "Win2008":
                         (("System", "system", ""), 
                          ("svchost.exe", "svchost.exe", "services.exe"),
