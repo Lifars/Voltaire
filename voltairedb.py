@@ -27,16 +27,13 @@ PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
 # for WinXP (WinXPSP0x86, WinXPSP1x86, ...)).
 # Note that all entries are lowercased.
 
-SANS_TEST = { "Win2003": 
-                        (("svchost.exe", "svchost.exe", "services.exe"),
+SANS_TEST = {"Win2003": (("svchost.exe", "svchost.exe", "services.exe"),
                          ("System", "system", "<unknown>"),
                          ("smss.exe", "smss.exe", "system")),
-              "WinXP": 
-                        (("svchost.exe", "svchost.exe", "services.exe"),
-                         ("System", "system", "<unknown>"),
-                         ("smss.exe", "smss.exe", "system")),                         
-              "Win2008":
-                        (("System", "system", ""), 
+             "WinXP": (("svchost.exe", "svchost.exe", "services.exe"),
+                       ("System", "system", "<unknown>"),
+                       ("smss.exe", "smss.exe", "system")),
+             "Win2008": (("System", "system", ""),
                          ("svchost.exe", "svchost.exe", "services.exe"),
                          ("wininit.exe", "wininit.exe", "<unknown>"),
                          ("taskhost.exe", "taskhost.exe", "services.exe"),
@@ -319,7 +316,7 @@ def build_process_tree(comargs):
         if procppid not in proctree:
             proctree.add_node(procppid, name="<unknown>")
         proctree.add_edge(procppid, procpid)
-    return(proctree)
+    return proctree
 
 def run_sans_tests(comargs):
     """ Uses the SANS 'Know Normal - Find Evil' criterion.
@@ -344,7 +341,7 @@ def run_sans_tests(comargs):
             tname, procname, pparname = indtest
             title = "Running %s test.\n" % (tname)
             freport.write(title)
-            freport.write("-"*len(title)+'\n\n')
+            freport.write("-"*len(title)+'\n')
             roguefound = False
             for nodeid in proctree.nodes:
                 if proctree.node[nodeid]['name'] == procname:
@@ -360,13 +357,34 @@ def run_sans_tests(comargs):
                                                ppid))
                             roguefound = True
             if not roguefound:
-                freport.write("No rogue process found. \n\n")
-            freport.write("\n\n")
+                freport.write("No rogue process found. \n")
+            freport.write("\n")
 
-
-def process(args):
-    args["src"] = os.path.abspath(args["src"])
-    args["dest"] = os.path.abspath(args["dest"])
+def dump(comargs):
+    """ Dumps the process identified by PID from the memory image.
+        Due to the possible large size, the dump is in a file and not in
+        the database.
+    """
+    comargs["src"] = os.path.abspath(comargs["src"])
+    comargs["dest"] = os.path.abspath(comargs["dest"])
+    dump_dir = comargs["dest"] + os.sep + \
+               "dumps" + os.sep + \
+               "ES%s"%(comargs["es"])
+    comargs["dest"] = dump_dir
+    is_valid(comargs)
+    cliargs = "procdump -f %s --profile=%s " % \
+              (comargs["src"],
+               comargs["profile"])
+    cliargs += "--pid=%s --dump-dir=\"%s\"" % \
+               (str(comargs["pid"]),
+                dump_dir)
+    scode = call("%s %s"%(PROGRAM,
+                          cliargs),
+                 shell=True)
+    if scode != 0:
+        print "Dumping process memory for pid %s failed." % (comargs["pid"])
+    else:
+        print "Dumping process memory for pid %s succesfull." % (comargs["pid"])
 
 def detect_profile(program, comargs):
     """ Run imageinfo on the provided image, ask the user to choose
@@ -434,18 +452,26 @@ if __name__ == "__main__":
     scan_parser.add_argument("-p", "--profile",
                              help="Profile name", required=False)
     scan_parser.add_argument("-e", "--es",
-                             help="ES mode", default=1, required=False)
+                             help="ES number", default=1, required=False)
     scan_parser.add_argument("-l", "--log",
                              help="Log file (captures output)",
                              default="voltaire.log",
                              required=False)
-    process_parser = sub_parsers.add_parser("process")
-    process_parser.set_defaults(which="process")
-    process_parser.add_argument("-s", "--src",
-                                help="Input directory", required=True)
-    process_parser.add_argument("-d", "--dest",
-                                help="Output directory",
-                                required=False, default="voltaire")
+    dump_parser = sub_parsers.add_parser("dump")
+    dump_parser.set_defaults(which="dump")
+    dump_parser.add_argument("-s", "--src",
+                             help="Input directory", required=True)
+    dump_parser.add_argument("-d", "--dest",
+                             help="Output directory",
+                             required=False, default="voltaire")
+    dump_parser.add_argument("-p", "--profile",
+                             help="Profile name",
+                             required=True)
+    dump_parser.add_argument("-i", "--pid",
+                             help="PID of the process to dump",
+                             required=True)
+    dump_parser.add_argument("-e", "--es",
+                             help="ES number", default=1, required=False)
     args = vars(parser.parse_args())
     subcommand = args.get("which", "")
     if subcommand == "scan":
@@ -460,7 +486,7 @@ if __name__ == "__main__":
         dump_malfind(args)
         run_sans_tests(args)
         #export_autorun(args)
-    elif subcommand == "process":
-        process(args)
+    elif subcommand == "dump":
+        dump(args)
     else:
         parser.print_help()
