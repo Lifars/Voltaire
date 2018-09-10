@@ -3,8 +3,11 @@
 # exit on the first error or unbound variable use.
 set -eu
 
-# global variables
-dependencies=('volatility' 'python')
+# dependencies variables, separated by distro
+archdeps=('volatility' 'python2' 'python2-networkx' 'python2-setuptools')
+debiandeps=('volatility' 'python' 'python-networkx' 'python-setuptools')
+
+# voltaire python script name
 voltaire="voltairedb.py"
 
 # params: none.
@@ -53,19 +56,20 @@ function check_voltaire()
 # description: check if the packages are installed already.
 function is_installed()
 {
-    declare distro
+    local distro
 
     distro="$1"
+
     case "${distro}" in
     arch)
-        if ! pacman -Qi "${dependencies[@]}" &>> /dev/null; then
-            echo "DEBUG: dependencies for ARCH based distro aren't met..."
+        if ! pacman -Qi "${archdeps[@]}" &>> /dev/null; then
+            echo "Info: dependencies for ARCH based distro aren't met..."
             return 1
         fi
         ;;
     debian)
-        if ! dpkg -s "${dependencies[@]}" &>> /dev/null; then
-            echo "DEBUG: dependencies for DEBIAN based distro aren't met..."
+        if ! dpkg -s "${debiandeps[@]}" &>> /dev/null; then
+            echo "Info: dependencies for DEBIAN based distro aren't met..."
             return 1
         fi
         ;;
@@ -82,7 +86,7 @@ function is_installed()
 function check_os()
 {
     local os
-    
+
     # source os-release file containing os information.
     if [ -f "/etc/os-release" ]; then
         source "/etc/os-release"
@@ -95,18 +99,18 @@ function check_os()
     case "${os}" in
     arch|blackarch|mantos)
         if ! is_installed "arch"; then
-            echo "DEBUG: installing dependencies for ARCH based distro..."
-            pacman -Sy volatility --needed --noconfirm
+            echo "Info: installing dependencies for ARCH based distro..."
+            sudo pacman -Sy "${archdeps[@]}" --needed --noconfirm
         fi
-        echo "DEBUG: dependencies are okay for ARCH based distro."
+        echo "Info: dependencies are okay for ARCH based distro."
         ;;
     kali|debian|ubuntu)
         if ! is_installed "debian"; then
-            echo "DEBUG: installing dependencies for DEBIAN based distro..."
-            apt-get update
-            apt-get --yes install volatility
+            echo "Info: installing dependencies for DEBIAN based distro..."
+            sudo apt-get update
+            sudo apt-get --yes install "${debiandeps[@]}"
         fi
-        echo "DEBUG: dependencies are okay for DEBIAN based distro."
+        echo "Info: dependencies are okay for DEBIAN based distro."
         ;;
     *)
         echo "error: could not find the OS identification. Exiting..."
@@ -123,50 +127,23 @@ function check_os()
 function encrypt_database()
 {
     local database md5
-    
+
     database="$1"
     if [ ! -f "${database}" ]; then
         echo "error: there is not database output."
         exit 1
     fi
-    
+
     md5="$(md5sum ${database} | awk '{ print $1 }')"
     mv -f "${database}" "${md5}.db"
-        
+
     if ! tar czf "${md5}.tar.gz" "${md5}.db" &>> /dev/null; then
         echo "error: trying to get tar.gz file from database."
         exit 1
     fi
-    
-    # TODO : encrypt database tar'ed file.
-    
-    return 0
-}
 
-# params: 
-#   $1 - source file.
-#   $2 - destination directory.
-#   $3 - profile id for Volatility.
-#   $4 - evidence case number.
-#   $5 - command to run.
-# description: run voltaire python script with args from caller.
-function run_voltaire()
-{
-    local source destination profile evidence run
-    
-    source="$1"
-    destination="$2"
-    profile="$3"
-    evidence="$4"
-    run="$5"
-    
-    if [ ! -d "${destination}" ]; then
-        mkdir -p "${destination}"
-    fi
-    
-    python2 "${PWD}/${voltaire}" "${run}" -s "${source}" -d "${PWD}/${destination}" \
-        -e "${evidence}" -p "${profile}"
-    
+    # TODO : encrypt database tar'ed file.
+
     return 0
 }
 
@@ -176,14 +153,21 @@ function run_voltaire()
 function main()
 {
     # local variables
-    local source destination profile case run encrypt
-    
-    if [ "$#" -lt 10 ]; then
+    local source destination profile evidence run encrypt options
+
+    if [ "$#" -lt 1 ]; then
         usage
     fi
-    
+
+    # default variable values
+    source="$1"
     encrypt="false"
-    
+    destination="output"
+    profile=""
+    evidence="01"
+    run="scan"
+    options=()
+
     # get args from caller
     while getopts "s:d:p:c:r:e" option; do
         case "${option}" in
@@ -194,7 +178,7 @@ function main()
         p)
             profile="${OPTARG}" ;;
         c)
-            case="${OPTARG}" ;;
+            evidence="${OPTARG}" ;;
         r)
             run="${OPTARG}" ;;
         e)
@@ -205,16 +189,27 @@ function main()
     done
 
     # check if we are root, exit if not.
-    check_root
+    #check_root
 
     # check if voltaire is present, if not exit (there is no need to continue).
     check_voltaire
 
     # check what os we have and take actions.
     check_os
-    
+
     # run voltaire on the memory image
-    run_voltaire "${source}" "${destination}" "${profile}" "${case}" "${run}"
+    options=("${run}" "-s" "${source}" "-d" "${destination}" "-e" "${evidence}")
+
+    if [ ! -f "${source}" ]; then
+        echo "error: ${source} is not a file."
+        exit 1
+    fi
+
+    if [ ! -z "${profile}" ]; then
+        options+=("-p" "${profile}")
+    fi
+
+    python2 "${PWD}/${voltaire}" "${options[@]}"
 
     # check if database file was created and encrypt it, if asked to.
     if [ "${encrypt}" = "true" ]; then
