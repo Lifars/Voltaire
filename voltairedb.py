@@ -239,8 +239,9 @@ def dump_malfind(comargs):
     dbconn = sqlite3.connect(dbfile)
     dbcursor = dbconn.cursor()
     # Create the table
-    query = """create table if not exists malprocdump (pid integer primary key,
-                                                       content blob)"""
+    query = """create table if not exists procdumps (pid integer primary key,
+                                                     reason text,
+                                                     content blob)"""
     dbcursor.execute(query)
     dbconn.commit()
     query = "select distinct pid from malfind"
@@ -271,8 +272,8 @@ def dump_malfind(comargs):
             filec = dfile.read()
             dfile.close()
             dbcursor2 = dbconn.cursor()
-            dbcursor2.execute("insert into malprocdump "+
-                              "(pid,content) values (?,?)",
+            dbcursor2.execute("insert into procdumps "+
+                              "(pid,reason,content) values (?,'Malfind',?)",
                               (pid, sqlite3.Binary(filec)))
             dbconn.commit()
             os.unlink(dfiles[0])
@@ -325,6 +326,7 @@ def run_sans_tests(comargs):
     path = comargs["dest"] + os.sep
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
+    suspiciouspid = []
     with open(outfile, "at") as freport:
         freport.write("SANS 'Know Normal ... Find Evil'\n")
         freport.write("********************************\n\n")
@@ -355,10 +357,55 @@ def run_sans_tests(comargs):
                                                nodeid,
                                                proctree.node[ppid]['name'],
                                                ppid))
+                            if nodeid not in suspiciouspid:
+                                suspiciouspid.append(nodeid)
                             roguefound = True
             if not roguefound:
                 freport.write("No rogue process found. \n")
             freport.write("\n")
+    # Dump the suspicious processes into the database.
+    dbfile = "{path}ES{number}.db".format(path=path,
+                                          number=args["es"])
+    dbconn = sqlite3.connect(dbfile)
+    dbcursor = dbconn.cursor()
+    # Create the table
+    query = """create table if not exists procdumps (pid integer primary key,
+                                                     reason text,
+                                                     content blob)"""
+    dbcursor.execute(query)
+    dbconn.commit()
+    for pid in suspiciouspid:
+        print "Dumping process for PID %s" % (pid)
+        output = tempfile.mkdtemp()
+        dumpargs = "--dump-dir=%s" % (output)
+        profargs = "--profile=%s" % (comargs['profile'])
+        srcargs = "-f %s" % (comargs["src"])
+        pidargs = "-p %s" % (pid)
+        scode = call("%s procdump %s %s %s %s"%(PROGRAM,
+                                                profargs,
+                                                srcargs,
+                                                dumpargs,
+                                                pidargs),
+                     shell=True)
+        if scode != 0:
+            print "Dumping process memory for pid %s failed." % (pid)
+        else:
+            # Get all files in the temporary output
+            dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
+                      if os.path.isfile(os.path.join(output, ent))]
+            if dfiles == []:
+                print "Process not in memory."
+                continue
+            dfile = open(dfiles[0], "rb")
+            filec = dfile.read()
+            dfile.close()
+            dbcursor2 = dbconn.cursor()
+            dbcursor2.execute("insert or ignore into procdumps "+
+                              "(pid,reason,content) values (?,'SANSTest',?)",
+                              (pid, sqlite3.Binary(filec)))
+            dbconn.commit()
+            os.unlink(dfiles[0])
+        os.rmdir(output)
 
 def dump(comargs):
     """ Dumps the process identified by PID from the memory image.
@@ -483,8 +530,8 @@ if __name__ == "__main__":
                 sys.exit(-1)
         scan(args)
         run_text_report(args)
-        dump_malfind(args)
         run_sans_tests(args)
+        dump_malfind(args)
         #export_autorun(args)
     elif subcommand == "dump":
         dump(args)
