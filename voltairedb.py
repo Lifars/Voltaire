@@ -54,7 +54,7 @@ VALID_PROFILES = dict.fromkeys(
      "Win7SP0x64", "Win7SP0x86", "Win7SP1x64", "Win7SP1x86", "Win81U1x64",
      "Win81U1x86", "Win8SP0x64", "Win8SP0x86", "Win8SP1x64", "Win8SP1x86",
      "WinXPSP1x64", "WinXPSP2x64", "WinXPSP2x86", "WinXPSP3x86"])
-
+# Commands to run
 COMMANDS = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
@@ -66,13 +66,12 @@ COMMANDS = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
             "sockscan", "svcscan", "timeliner", "truecryptmaster",
             "truecryptpassphrase", "truecryptsummary", "unloadedmodules",
             "windows", "wintree", "connections", "userassist"]
-
+# Commands that do not log into the database.
 NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
                "truecryptmaster", "truecryptpassphrase",
                "truecryptsummary", "windows", "wintree", "userassist"]
 
 # Title for report and commands that generate a text output
-
 TEXT_COMMANDS = [("AmCache Listing", "amcache"),
                  ("Malware Finder", "malfind")]
 
@@ -368,7 +367,7 @@ def run_sans_tests(comargs):
                                           number=args["es"])
     dbconn = sqlite3.connect(dbfile)
     dbcursor = dbconn.cursor()
-    # Create the table
+    # Create the table if it does not already exist.
     query = """create table if not exists procdumps (pid integer primary key,
                                                      reason text,
                                                      content blob)"""
@@ -396,6 +395,7 @@ def run_sans_tests(comargs):
             if dfiles == []:
                 print "Process not in memory."
                 continue
+            # Insert the dumped file as a blob in the database.
             dfile = open(dfiles[0], "rb")
             filec = dfile.read()
             dfile.close()
@@ -436,6 +436,8 @@ def dump(comargs):
 def detect_profile(program, comargs):
     """ Run imageinfo on the provided image, ask the user to choose
         a profile if more than one profile are suggested.
+        If too many profiles are present in the output, it is possible that it
+        will be truncated. In that case, run a manual detection.
     """
     print "Attempting automatic detection of the image profile."
     tempoutput = tempfile.TemporaryFile("rwt")
@@ -528,9 +530,12 @@ if __name__ == "__main__":
                 # Profile detection unsuccessful.
                 print "Profile detection failed. Please provide a valid profile"
                 sys.exit(-1)
+        # Run the analysis, first DB then the two text commands
         scan(args)
         run_text_report(args)
+        # Run the SANS tests and dump the offending processes in the DB
         run_sans_tests(args)
+        # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
     elif subcommand == "dump":
