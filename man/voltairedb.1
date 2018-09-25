@@ -1,0 +1,55 @@
+.TH voltairedb.py 1
+.SH NAME
+voltairedb.py \- Perform an automated analysis of a provided image or dump processes
+.SH SYNOPSIS
+.B voltairedb.py scan 
+[\fB\-h\fR] \fB\-s\fR \fISRC\fR [\fB\-d\fR \fIDEST\fR]
+[\fB\-p\fR \fIPROFILE\fR] [\fB\-e\fR \fIES\fR] [\fB\-l\fR \fILOG\fR]
+
+.B voltairedb.py dump 
+[\fB\-h\fR] \fB\-s\fR \fISRC\fR [\fB\-d\fR \fIDEST\fR] 
+\fB-p\fR \fIPROFILE\fR \fB-i\fR \fIPID\fR
+[\fB\-e\fR \fIES\fR]
+.SH DESCRIPTION
+.B voltairedb.py scan
+runs an automated analysis of the memory image and stores
+the results in a database for further processing.
+
+.B voltairedb.py dump
+dumps a single process from the memory image and stores it on disk.
+.SH OPTIONS
+.TP
+(\fBscan\fR|\fBdump\fR)
+Select the mode, analyse of the memory image or process dump.
+.TP
+.BR \-h ", " \-\-help\fR
+displays the help. If preceded by \fBscan\fR or \fBdump\fR, provides the
+contextual help.
+.TP
+\fB\-d\fR \fIDEST\fR, \fB\-\-dest=\fR\fIDEST\fR  
+Use \fIDEST\fR as the destination directory for the database, log and files
+dumped. By default, set to \fB./voltaire\fR
+.TP
+\fB\-e\fR \fINUMBER\fR, \fB\-\-es=\fR\fINUMBER\fR
+Optional, provide a "ES" number for the resulting data. The files will be named
+ES\fINUMBER\fR (ES01, ES02 ...). Default is "1".
+.TP
+\fB\-i\fR \fIPID\fR, \fB\-\-pid=\fR\fIPID\fR
+Only for \fBdump\fR, \fIPID\fR of the process to dump.
+.TP
+\fB\-l\fR \fILOG\fR, \fB\-\-log=\fR\fILOG\fR
+Optional, use \fILOG\fR to capture the output.
+.TP
+\fB\-p\fR \fIPROFILE\fR, \fB\-\-profile=\fR\fIPROFILE\fR
+Use \fIPROFILE\fR as the memory image profile for
+.BR Volatility.
+Optional for \fBscan\fR, if not present, an attempt will be made to detect
+automatically the profile. Mandatory for \fBdump\fR.
+.TP
+\fB\-s\fR \fISRC\fR, \fB\-\-src=\fR\fISRC\fR     
+Use \fISRC\fR as the input file (memory image). Mandatory both for
+\fBscan\fR and \fBdump\fR.
+
+
+
+
