@@ -1,6 +1,6 @@
 .TH voltairedb.py 1
 .SH NAME
-voltairedb.py \- Perform an automated analysis of a provided image or dump processes
+voltairedb.py \- Perform an automated analysis of a provided image or dump processes using \fivolatility\fR.
 .SH SYNOPSIS
 .B voltairedb.py scan 
 [\fB\-h\fR] \fB\-s\fR \fISRC\fR [\fB\-d\fR \fIDEST\fR]
@@ -31,7 +31,7 @@ Use \fIDEST\fR as the destination directory for the database, log and files
 dumped. By default, set to \fB./voltaire\fR
 .TP
 \fB\-e\fR \fINUMBER\fR, \fB\-\-es=\fR\fINUMBER\fR
-Optional, provide a "ES" number for the resulting data. The files will be named
+Optional, provide an evidence number for the resulting data. The files will be named
 ES\fINUMBER\fR (ES01, ES02 ...). Default is "1".
 .TP
 \fB\-i\fR \fIPID\fR, \fB\-\-pid=\fR\fIPID\fR
@@ -49,7 +49,9 @@ automatically the profile. Mandatory for \fBdump\fR.
 \fB\-s\fR \fISRC\fR, \fB\-\-src=\fR\fISRC\fR     
 Use \fISRC\fR as the input file (memory image). Mandatory both for
 \fBscan\fR and \fBdump\fR.
-
+.SH LICENSE
+\fBVoltaire\fR is developped by LIFARS LLC and is made available under the
+XXXX licence. See LICENCE.TXT for more information.
 
 
 

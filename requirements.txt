@@ -4,3 +4,8 @@ Required python packages (python 2.7)
 - networkx
 
 
+Required executables
+====================
+
+- Volatility (https://www.volatilityfoundation.org/)
+
