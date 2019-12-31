@@ -4,7 +4,6 @@
 
 
 import argparse
-import argparse
 import os
 import sys
 from sys import platform as _platform
@@ -246,7 +245,12 @@ def dump_malfind(comargs):
     dbcursor.execute(query)
     dbconn.commit()
     query = "select distinct pid from malfind"
-    for row in dbcursor.execute(query):
+    dbcursor.execute(query)
+    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
+    # Need to use fetchall to get all rows ahead.
+    allRows = dbcursor.fetchall()
+
+    for row in allRows:
         pid = row[0]
         print "Dumping process for PID %s" % (pid)
         output = tempfile.mkdtemp()
