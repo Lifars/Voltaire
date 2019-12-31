@@ -2,7 +2,6 @@
 # voltairedb.py
 # Short rewrite of voltaire.py to make use of the SQLite3 renderer.
 
-
 import argparse
 import os
 import sys
