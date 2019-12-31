@@ -11,13 +11,16 @@ from subprocess import call
 import sqlite3
 import tempfile
 import networkx as nx
+from distutils.spawn import find_executable
 
 # Global variables
 # OS we are using
 IS_WINDOWS = _platform == "win32"
 
 PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
-                                     else os.path.abspath("vol.py")
+                                     # automatically find vol.py
+                                     else find_executable('vol.py')
+
 # SANS Test
 # Each entry is indexed by "Applicable profile", and is
 # "test name", "process name", "expected name".
@@ -350,7 +353,7 @@ def run_sans_tests(comargs):
             freport.write(title)
             freport.write("-"*len(title)+'\n')
             roguefound = False
-            for nodeid in proctree.nodes:
+            for nodeid in proctree.nodes():
                 if proctree.node[nodeid]['name'] == procname:
                     # Check parent's name (predecessors returns an iterable)
                     for ppid in proctree.predecessors(nodeid):
