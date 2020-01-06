@@ -17,8 +17,7 @@ from distutils.spawn import find_executable
 IS_WINDOWS = _platform == "win32"
 
 PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
-                                     # automatically find vol.py
-                                     else find_executable('vol.py')
+                                     else find_executable('vol.py') # automatically find vol.py
 
 # SANS Test
 # Each entry is indexed by "Applicable profile", and is
