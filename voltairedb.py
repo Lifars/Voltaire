@@ -11,6 +11,8 @@ import sqlite3
 import tempfile
 import networkx as nx
 from distutils.spawn import find_executable
+from datetime import datetime
+from multiprocessing import Pool
 
 # Global variables
 # OS we are using
@@ -85,8 +87,14 @@ def individual_scan(comargs, command):
 def scan(comargs):
     global PROGRAM
     is_valid(comargs)
+
+    # TODO, paramize number of executors
+    pool = Pool(4)
     for command in COMMANDS:
-        run_command(comargs, PROGRAM, command, None)
+        pool.apply_async(run_command, (comargs, PROGRAM, command, None))
+    pool.close()
+    pool.join()
+    print "End of scan"
 
 def get_process(fullpath):
     """ Returns a dictionary with all the PIDs found by PSList, PSScan,
@@ -132,6 +140,7 @@ def is_valid(args):
         print "NOTICE: No ES set. Defaulting to ES=1."
 
 def run_command(args, executable, command, pid):
+    print "Running command {command} {executable}, {comargs} ".format(command=command, comargs=args, executable=executable)
     path = args["dest"] + os.sep
     if command in NON_DB_COMS:
         # Only log to DB. Everything else is ignored.
@@ -538,6 +547,8 @@ if __name__ == "__main__":
                 print "Profile detection failed. Please provide a valid profile"
                 sys.exit(-1)
         # Run the analysis, first DB then the two text commands
+        # Todo, remove debug time
+        print("====Current Time =", datetime.now())
         scan(args)
         run_text_report(args)
         # Run the SANS tests and dump the offending processes in the DB
@@ -545,6 +556,8 @@ if __name__ == "__main__":
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
+        # Todo, remove debug time
+        print("====Current Time =", datetime.now())
     elif subcommand == "dump":
         dump(args)
     else:
