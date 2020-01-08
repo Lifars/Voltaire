@@ -121,7 +121,7 @@ def is_valid(args):
     args["src"] = "\"{path}\"".format(path=os.path.abspath(args["src"]))
     args["dest"] = os.path.abspath(args["dest"])
     if "src" in args:
-        print "Source file: {src}".format(src=args["src"])
+        print "Source file: '{src}'".format(src=args["src"])
     if "dest" in args:
         if not os.path.exists(args["dest"]):
             os.makedirs(args["dest"])
@@ -153,14 +153,14 @@ def run_command(args, executable, command, pid):
     command_with_flag = command
     outlog = open(args["log"], "at")
     if "profile" in args:
-        params = "-f {src} --profile={profile} {command} {destflag}\"{dest}\""
+        params = "-f '{src}' --profile={profile} {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                profile=args["profile"],
                                command=command_with_flag,
                                destflag=outflag,
                                dest=outfile)
     else:
-        params = "-f {src} {command} {destflag}\"{dest}\""
+        params = "-f '{src}' {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                command=command_with_flag,
                                destflag=outflag,
@@ -189,7 +189,7 @@ def export_autorun(args):
     print "Starting exporting autorun keys."
     outlog.write("Starting exporting autorun keys.\n")
     if "profile" in args:
-        params = "-f {src} --profile={profile} " + \
+        params = "-f '{src}' --profile={profile} " + \
                  "printkey -K \"software\\microsoft\\windows" + \
                  "\\currentversion\\run\" " + \
                  "--output=text --output-file={dest}"
@@ -197,7 +197,7 @@ def export_autorun(args):
                                profile=args["profile"],
                                dest=outfile)
     else:
-        params = "-f {src} printkey -K \"software\\microsoft\\windows" + \
+        params = "-f '{src}' printkey -K \"software\\microsoft\\windows" + \
                  "\\currentVersion\\run\" " + \
                  "--output=text --output-file={dest}"
         params = params.format(src=args["src"],
@@ -457,7 +457,7 @@ def detect_profile(program, comargs):
     """
     print "Attempting automatic detection of the image profile."
     tempoutput = tempfile.TemporaryFile("rwt")
-    params = "imageinfo -f {src}".format(src=comargs['src'])
+    params = "imageinfo -f '{src}'".format(src=comargs['src'])
     result = call("{program} {params}".format(program=program,
                                               params=params),
                   shell=True, stdout=tempoutput)
@@ -547,8 +547,6 @@ if __name__ == "__main__":
                 print "Profile detection failed. Please provide a valid profile"
                 sys.exit(-1)
         # Run the analysis, first DB then the two text commands
-        # Todo, remove debug time
-        print("====Current Time =", datetime.now())
         scan(args)
         run_text_report(args)
         # Run the SANS tests and dump the offending processes in the DB
@@ -556,8 +554,6 @@ if __name__ == "__main__":
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
-        # Todo, remove debug time
-        print("====Current Time =", datetime.now())
     elif subcommand == "dump":
         dump(args)
     else:
