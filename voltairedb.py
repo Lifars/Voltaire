@@ -153,14 +153,14 @@ def run_command(args, executable, command, pid):
     command_with_flag = command
     outlog = open(args["log"], "at")
     if "profile" in args:
-        params = "-f '{src}' --profile={profile} {command} {destflag}\"{dest}\""
+        params = "-f \"{src}\" --profile={profile} {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                profile=args["profile"],
                                command=command_with_flag,
                                destflag=outflag,
                                dest=outfile)
     else:
-        params = "-f '{src}' {command} {destflag}\"{dest}\""
+        params = "-f \"{src}\" {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                command=command_with_flag,
                                destflag=outflag,
