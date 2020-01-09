@@ -47,6 +47,10 @@ SANS_TEST = {"Win2003": (("svchost.exe", "svchost.exe", "services.exe"),
                          ("services.exe", "services.exe", "wininit.exe"),
                          ("lsm.exe", "lsm.exe", "wininit.exe"),
                          ("explorer.exe", "explorer.exe", "<unknown>"))}
+IMAGE_PATH = {"smss.exe": "\system32\smss.exe",
+              "wininit.exe": "\system32\wininit.exe",
+              "explorer.exe": "\explorer.exe"
+              }
 
 # Valid profiles
 # Based on https://github.com/volatilityfoundation/volatility/blob/master/README.txt#L170
@@ -124,7 +128,7 @@ def is_valid(args):
     args["src"] = "\"{path}\"".format(path=os.path.abspath(args["src"]))
     args["dest"] = os.path.abspath(args["dest"])
     if "src" in args:
-        print "Source file: '{src}'".format(src=args["src"])
+        print "Source file: \"{src}\"".format(src=args["src"])
     if "dest" in args:
         if not os.path.exists(args["dest"]):
             os.makedirs(args["dest"])
@@ -192,7 +196,7 @@ def export_autorun(args):
     print "Starting exporting autorun keys."
     outlog.write("Starting exporting autorun keys.\n")
     if "profile" in args:
-        params = "-f '{src}' --profile={profile} " + \
+        params = "-f \"{src}\" --profile={profile} " + \
                  "printkey -K \"software\\microsoft\\windows" + \
                  "\\currentversion\\run\" " + \
                  "--output=text --output-file={dest}"
@@ -200,7 +204,7 @@ def export_autorun(args):
                                profile=args["profile"],
                                dest=outfile)
     else:
-        params = "-f '{src}' printkey -K \"software\\microsoft\\windows" + \
+        params = "-f \"{src}\" printkey -K \"software\\microsoft\\windows" + \
                  "\\currentVersion\\run\" " + \
                  "--output=text --output-file={dest}"
         params = params.format(src=args["src"],
@@ -426,6 +430,89 @@ def run_sans_tests(comargs):
             os.unlink(dfiles[0])
         os.rmdir(output)
 
+def run_image_path_tests(comargs):
+    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path
+    """
+    path = args["dest"] + os.sep
+    dbfile = "{path}ES{number}.db".format(path=path,
+                                          number=args["es"])
+    dbconn = sqlite3.connect(dbfile)
+    dbcursorEnv = dbconn.cursor()
+    dbcursor = dbconn.cursor()
+    # Create the table
+    # query = """create table if not exists procdumps (pid integer primary key,
+    #                                                  reason text,
+    #                                                  content blob)"""
+    # dbcursor.execute(query)
+    # dbconn.commit()
+    querySystemRoot = "select distinct Value from Envars where LOWER(Variable) = 'systemroot'"
+    envSystemRootResult = dbcursorEnv.execute(querySystemRoot).fetchall()
+    dbconn.commit()
+    print "envSystemRoot[0]===="
+    if not envSystemRootResult :
+        print "Error: not find environment variable SystemRoot"
+    envSystemRoot = envSystemRootResult[0][0]
+    print "envSystemRoot=" + envSystemRoot
+
+    query = "select distinct path from DllList where path like \"%.exe\""
+    dbcursor.execute(query)
+    dbconn.commit()
+    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
+    # Need to use fetchall to get all rows ahead.
+    allRows = dbcursor.fetchall()
+    print "===allRows==="
+    # print allRows
+
+    for row in allRows:
+        imagePath = row[0]
+        print "Checking image path: %s" % (imagePath)
+        lastSlashIndex = imagePath.rfind('\\')
+        if lastSlashIndex > -1 :
+            processName = imagePath[lastSlashIndex + 1 : ]
+            print "     processName:" + processName
+            if IMAGE_PATH.has_key(processName) :
+                processSuffix = IMAGE_PATH[processName]
+                print "     processSuffix:{processSuffix}".format(processSuffix=processSuffix)
+                print "     endWith:{endWith}".format(endWith=imagePath.endswith(processSuffix))
+                constructPath = (envSystemRoot + processSuffix).lower()
+                constructPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
+                print "     constructPath:{constructPath}".format(constructPath=constructPath)
+                print "     samePath:{samePath}".format(samePath=constructPath == imagePath.lower())
+                print "     samePath2:{samePath}".format(samePath=constructPathSystemRoot == imagePath.lower())
+
+
+        # output = tempfile.mkdtemp()
+        # dumpargs = "--dump-dir=%s" % (output)
+        # profargs = "--profile=%s" % (comargs['profile'])
+        # srcargs = "-f %s" % (comargs["src"])
+        # pidargs = "-p %s" % (pid)
+        # scode = call("%s procdump %s %s %s %s"%(PROGRAM,
+        #                                         profargs,
+        #                                         srcargs,
+        #                                         dumpargs,
+        #                                         pidargs),
+        #              shell=True)
+        # if scode != 0:
+        #     print "Dumping process memory for pid %s failed." % (pid)
+        # else:
+        #     # Get all files in the temporary output
+        #     dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
+        #               if os.path.isfile(os.path.join(output, ent))]
+        #     if dfiles == []:
+        #         print "Process not in memory."
+        #         continue
+        #     dfile = open(dfiles[0], "rb")
+        #     filec = dfile.read()
+        #     dfile.close()
+        #     dbcursor2 = dbconn.cursor()
+        #     dbcursor2.execute("insert into procdumps "+
+        #                       "(pid,reason,content) values (?,'Malfind',?)",
+        #                       (pid, sqlite3.Binary(filec)))
+        #     dbconn.commit()
+        #     os.unlink(dfiles[0])
+        # os.rmdir(output)
+
+
 def dump(comargs):
     """ Dumps the process identified by PID from the memory image.
         Due to the possible large size, the dump is in a file and not in
@@ -460,7 +547,7 @@ def detect_profile(program, comargs):
     """
     print "Attempting automatic detection of the image profile."
     tempoutput = tempfile.TemporaryFile("rwt")
-    params = "imageinfo -f '{src}'".format(src=comargs['src'])
+    params = "imageinfo -f \"{src}\"".format(src=comargs['src'])
     result = call("{program} {params}".format(program=program,
                                               params=params),
                   shell=True, stdout=tempoutput)
@@ -554,6 +641,7 @@ if __name__ == "__main__":
         run_text_report(args)
         # Run the SANS tests and dump the offending processes in the DB
         run_sans_tests(args)
+        run_image_path_tests(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
