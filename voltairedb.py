@@ -59,7 +59,7 @@ VALID_PROFILES = dict.fromkeys(
      "VistaSP2x86", "Win10x64", "Win10x64_10586", "Win10x64_14393", "Win10x86",
      "Win10x86_10586", "Win10x86_14393", "Win2003SP0x86", "Win2003SP1x64", "Win2003SP1x86",
      "Win2003SP2x64", "Win2003SP2x86", "Win2008R2SP0x64", "Win2008R2SP1x64",
-     "Win2008R2SP1x64_23418 Win2008SP1x64", "Win2008SP1x86", "Win2008SP2x64",
+     "Win2008R2SP1x64_23418", "Win2008SP1x64", "Win2008SP1x86", "Win2008SP2x64",
      "Win2008SP2x86", "Win2012R2x64", "Win2012R2x64_18340", "Win2012x64", "Win2016x64_14393",
      "Win7SP0x64", "Win7SP0x86", "Win7SP1x64", "Win7SP1x64_23418", "Win7SP1x86",
      "Win7SP1x86_23418", "Win81U1x64", "Win81U1x86", "Win8SP0x64", "Win8SP0x86",
@@ -147,7 +147,6 @@ def is_valid(args):
         print "NOTICE: No ES set. Defaulting to ES=1."
 
 def run_command(args, executable, command, pid):
-    print "Running command {command} {executable}, {comargs} ".format(command=command, comargs=args, executable=executable)
     path = args["dest"] + os.sep
     if command in NON_DB_COMS:
         # Only log to DB. Everything else is ignored.
