@@ -59,10 +59,10 @@ VALID_PROFILES = dict.fromkeys(
      "Win81U1x86", "Win8SP0x64", "Win8SP0x86", "Win8SP1x64", "Win8SP1x86",
      "WinXPSP1x64", "WinXPSP2x64", "WinXPSP2x86", "WinXPSP3x86"])
 # Commands to run
-COMMANDS = ["amcache", "apihooks", "atoms", "atomscan", "bigpools", "bioskbd",
+COMMANDS = ["apihooks", "amcache", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
-            "dumpregistry", "envars", "filescan", "hashdump", "iehistory",
+            "dumpregistry", "envars", "filescan", "getsids", "hashdump", "iehistory",
             "ldrmodules", "lsadump", "malfind", "messagehooks",
             "modscan", "modules", "mutantscan -s", "netscan",
             "notepad", "pslist", "psscan", "pstree", "psxview", "screenshot",
