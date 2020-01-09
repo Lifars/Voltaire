@@ -201,7 +201,7 @@ def is_valid(args):
     args["dest"] = os.path.abspath(args["dest"])
 
     if "src" in args:
-        print("Source file: '{src}'".format(src=args["src"]))
+        print("Source file: \"{src}\"".format(src=args["src"]))
 
     if "dest" in args:
         if not os.path.exists(args["dest"]):
@@ -245,13 +245,13 @@ def run_command(args, program, command, pid):
         command_with_flag = "{command} -p {pid}".format(command=command, pid=pid)
 
     if "profile" in args:
-        params = "-f '{src}' --profile={profile} {command} {destflag}\"{dest}\"".format(src=args["src"],
+        params = "-f \"{src}\" --profile={profile} {command} {destflag}\"{dest}\"".format(src=args["src"],
                                                                                       profile=args["profile"],
                                                                                       command=command_with_flag,
                                                                                       destflag=outflag,
                                                                                       dest=outfile)
     else:
-        params = "-f '{src}' {command} {destflag}\"{dest}\"".format(src=args["src"], command=command_with_flag,
+        params = "-f \"{src}\" {command} {destflag}\"{dest}\"".format(src=args["src"], command=command_with_flag,
                                                                   destflag=outflag,
                                                                   dest=outfile)
 
@@ -275,11 +275,11 @@ def run_command(args, program, command, pid):
                 outfile = outfile + "_{pid}".format(pid=pid)
 
         if "profile" in args:
-            params = "-f '{src}' --profile={profile} printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
+            params = "-f \"{src}\" --profile={profile} printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
                 src=args["src"], profile=args["profile"], destflag=outflag, dest=outfile)
 
         else:
-            params = "-f '{src}' printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
+            params = "-f \"{src}\" printkey \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" {destflag}{dest}".format(
                 src=args["src"], destflag=outflag, dest=outfile)
 
         result = call("{program} {params}".format(program=program, params=params))
