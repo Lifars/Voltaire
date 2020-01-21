@@ -11,7 +11,6 @@ import sqlite3
 import tempfile
 import networkx as nx
 from distutils.spawn import find_executable
-from datetime import datetime
 from multiprocessing import Pool
 
 # Global variables
@@ -83,6 +82,8 @@ VALID_PROFILES = dict.fromkeys(
      "Win8SP1x64", "Win8SP1x64_18340", "Win8SP1x86", "WinXPSP1x64", "WinXPSP2x64",
      "WinXPSP2x86", "WinXPSP3x86"])
 # Commands to run
+# todo Scan apihooks quicker by -Q / --quick
+# https://github.com/volatilityfoundation/volatility/raw/gh-pages/docs/VolatilityCheatSheet.pdf
 COMMANDS = ["apihooks", "amcache", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
@@ -482,12 +483,14 @@ def run_image_path_tests(comargs):
             fullPathEnv = (envSystemRoot + processSuffix).lower()
             fullPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
 
-            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe"
-            if fullPathEnv != imagePath.lower() and fullPathSystemRoot != imagePath.lower():
+            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe" or "\??\C:\WINDOWS\system32\csrss.exe"
+            if not imagePath.lower().endswith(fullPathEnv) \
+                    and not imagePath.lower().endswith(fullPathSystemRoot):
                 invalidImagePathList.append(imagePath)
 
     # todo, centralize the message and write file function
-    # write result to file    path = comargs["dest"] + os.sep
+    # write result to file
+    path = comargs["dest"] + os.sep
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
     with open(outfile, "at") as freport:
@@ -513,15 +516,15 @@ def run_user_account_tests(comargs):
     dbconn = sqlite3.connect(dbfile)
     localSystemDBCursor = dbconn.cursor()
 
+    # get distinct process name which is in LOCAL_SYSTEM_ACCOUNT_PROCESS and name="Local System"
     processQueryStr = getProcessQueryString()
     localSystemQuery = "select distinct Process from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
     localSystemDBCursor.execute(localSystemQuery)
     dbconn.commit()
-
     localSystemResult = localSystemDBCursor.fetchall()
     localSystemCount = len(localSystemResult)
 
-
+    # get distinct process name which is in LOCAL_SYSTEM_ACCOUNT_PROCESS
     processDBCursor = dbconn.cursor()
     processQuery = "select distinct Process from GetSIDs where Process in {process} ".format(process=processQueryStr)
     processDBCursor.execute(processQuery)
