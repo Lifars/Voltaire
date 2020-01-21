@@ -47,10 +47,27 @@ SANS_TEST = {"Win2003": (("svchost.exe", "svchost.exe", "services.exe"),
                          ("services.exe", "services.exe", "wininit.exe"),
                          ("lsm.exe", "lsm.exe", "wininit.exe"),
                          ("explorer.exe", "explorer.exe", "<unknown>"))}
-IMAGE_PATH = {"smss.exe": "\system32\smss.exe",
+# Map of <Process, Normal image path suffix>
+PROCESS_IMAGE_PATH_SUFFIX = {"smss.exe": "\system32\smss.exe",
               "wininit.exe": "\system32\wininit.exe",
+              "runtimebroker.exe": "\system32\runtimebroker.exe",
+              "taskhostw.exe": "\system32\taskhostw.exe",
+              "winlogon.exe": "\system32\winlogon.exe",
+              "csrss.exe": "\system32\csrss.exe",
+              "services.exe": "\system32\services.exe",
+              "svchost.exe": "\system32\svchost.exe",
+              "lsaiso.exe": "\system32\lsaiso.exe",
+              "lsass.exe": "\system32\lsass.exe",
               "explorer.exe": "\explorer.exe"
               }
+# Process, whose normal user account: Local System
+LOCAL_SYSTEM_ACCOUNT_PROCESS = ["smss.exe",
+                                "wininit.exe",
+                                "winlogon.exe",
+                                "csrss.exe",
+                                "services.exe",
+                                "lsaiso.exe",
+                                "lsass.exe"]
 
 # Valid profiles
 # Based on https://github.com/volatilityfoundation/volatility/blob/master/README.txt#L170
@@ -462,15 +479,16 @@ def run_image_path_tests(comargs):
     print "===allRows==="
     # print allRows
 
+    validImagePath = True
     for row in allRows:
         imagePath = row[0]
         print "Checking image path: %s" % (imagePath)
         lastSlashIndex = imagePath.rfind('\\')
-        if lastSlashIndex > -1 :
-            processName = imagePath[lastSlashIndex + 1 : ]
+        if lastSlashIndex > -1:
+            processName = imagePath[lastSlashIndex + 1:].lower()
             print "     processName:" + processName
-            if IMAGE_PATH.has_key(processName) :
-                processSuffix = IMAGE_PATH[processName]
+            if PROCESS_IMAGE_PATH_SUFFIX.has_key(processName):
+                processSuffix = PROCESS_IMAGE_PATH_SUFFIX[processName]
                 print "     processSuffix:{processSuffix}".format(processSuffix=processSuffix)
                 print "     endWith:{endWith}".format(endWith=imagePath.endswith(processSuffix))
                 constructPath = (envSystemRoot + processSuffix).lower()
@@ -479,37 +497,59 @@ def run_image_path_tests(comargs):
                 print "     samePath:{samePath}".format(samePath=constructPath == imagePath.lower())
                 print "     samePath2:{samePath}".format(samePath=constructPathSystemRoot == imagePath.lower())
 
+                if constructPath != imagePath.lower() and constructPathSystemRoot != imagePath.lower():
+                    validImagePath = False
+                    break
 
-        # output = tempfile.mkdtemp()
-        # dumpargs = "--dump-dir=%s" % (output)
-        # profargs = "--profile=%s" % (comargs['profile'])
-        # srcargs = "-f %s" % (comargs["src"])
-        # pidargs = "-p %s" % (pid)
-        # scode = call("%s procdump %s %s %s %s"%(PROGRAM,
-        #                                         profargs,
-        #                                         srcargs,
-        #                                         dumpargs,
-        #                                         pidargs),
-        #              shell=True)
-        # if scode != 0:
-        #     print "Dumping process memory for pid %s failed." % (pid)
-        # else:
-        #     # Get all files in the temporary output
-        #     dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
-        #               if os.path.isfile(os.path.join(output, ent))]
-        #     if dfiles == []:
-        #         print "Process not in memory."
-        #         continue
-        #     dfile = open(dfiles[0], "rb")
-        #     filec = dfile.read()
-        #     dfile.close()
-        #     dbcursor2 = dbconn.cursor()
-        #     dbcursor2.execute("insert into procdumps "+
-        #                       "(pid,reason,content) values (?,'Malfind',?)",
-        #                       (pid, sqlite3.Binary(filec)))
-        #     dbconn.commit()
-        #     os.unlink(dfiles[0])
-        # os.rmdir(output)
+    print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
+
+    # todo, write to file like run_sans_tests
+
+
+def run_user_account_tests(comargs):
+    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path
+    """
+    path = args["dest"] + os.sep
+    dbfile = "{path}ES{number}.db".format(path=path,
+                                          number=args["es"])
+    dbconn = sqlite3.connect(dbfile)
+    localSystemDBCursor = dbconn.cursor()
+
+    print "++++LOCAL_SYSTEM_ACCOUNT_PROCESS:{LOCAL_SYSTEM_ACCOUNT_PROCESS}".format(LOCAL_SYSTEM_ACCOUNT_PROCESS=LOCAL_SYSTEM_ACCOUNT_PROCESS)
+    processStr = repr(LOCAL_SYSTEM_ACCOUNT_PROCESS)
+    processQueryList = list(processStr)
+    processQueryList[0] = '('
+    processQueryList[len(processQueryList) - 1] = ')'
+    processQueryStr = ''.join(processQueryList)
+    print "++++processQueryStr={processQueryStr}".format(processQueryStr=processQueryStr)
+    localSystemQuery = "select count(distinct Process) from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
+    # query = "select distinct Process from GetSIDs where Process in {process}".format(process=processQueryStr)
+    print "++++localSystemQuery=" + localSystemQuery
+    localSystemDBCursor.execute(localSystemQuery)
+    dbconn.commit()
+    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
+    # Need to use fetchall to get all rows ahead.
+    localSystemCountResult = localSystemDBCursor.fetchall()
+    print "===Count==="
+    print localSystemCountResult
+    print localSystemCountResult[0][0]
+
+
+    processDBCursor = dbconn.cursor()
+    processQuery = "select count(distinct Process) from GetSIDs where Process in {process} ".format(process=processQueryStr)
+    processDBCursor.execute(processQuery)
+    dbconn.commit()
+    processCountResult = processDBCursor.fetchall()
+    print "===Count2==="
+    print processCountResult
+    print processCountResult[0][0]
+
+    if localSystemCountResult[0][0] == processCountResult[0][0] :
+        print "===equal==="
+    else :
+        print "===not equal==="
+
+    # todo, write to file like run_sans_tests
 
 
 def dump(comargs):
@@ -641,6 +681,7 @@ if __name__ == "__main__":
         # Run the SANS tests and dump the offending processes in the DB
         run_sans_tests(args)
         run_image_path_tests(args)
+        run_user_account_tests(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
