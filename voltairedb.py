@@ -447,67 +447,80 @@ def run_sans_tests(comargs):
         os.rmdir(output)
 
 def run_image_path_tests(comargs):
-    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path
+    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path of process
     """
     path = args["dest"] + os.sep
     dbfile = "{path}ES{number}.db".format(path=path,
                                           number=args["es"])
     dbconn = sqlite3.connect(dbfile)
-    dbcursorEnv = dbconn.cursor()
-    dbcursor = dbconn.cursor()
-    # Create the table
-    # query = """create table if not exists procdumps (pid integer primary key,
-    #                                                  reason text,
-    #                                                  content blob)"""
-    # dbcursor.execute(query)
-    # dbconn.commit()
+    envDBCursor = dbconn.cursor()
+    exeDBCursor = dbconn.cursor()
+    # Get systemroot environment variable
     querySystemRoot = "select distinct Value from Envars where LOWER(Variable) = 'systemroot'"
-    envSystemRootResult = dbcursorEnv.execute(querySystemRoot).fetchall()
+    envSystemRootResult = envDBCursor.execute(querySystemRoot).fetchall()
     dbconn.commit()
-    print "envSystemRoot[0]===="
+    # print "envSystemRoot[0]===="
     if not envSystemRootResult :
         print "Error: not find environment variable SystemRoot"
+        return
     envSystemRoot = envSystemRootResult[0][0]
-    print "envSystemRoot=" + envSystemRoot
+    print "SystemRoot evironment variable:" + envSystemRoot
 
-    query = "select distinct path from DllList where path like \"%.exe\""
-    dbcursor.execute(query)
+    # Get path of all xxxx.exe
+    exeQuery = "select distinct path from DllList where path like \"%.exe\""
+    exeDBCursor.execute(exeQuery)
     dbconn.commit()
-    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
-    # Need to use fetchall to get all rows ahead.
-    allRows = dbcursor.fetchall()
-    print "===allRows==="
+    allImagePath = exeDBCursor.fetchall()
+    # print "===allRows==="
     # print allRows
 
-    validImagePath = True
-    for row in allRows:
+    invalidImagePathList = []
+    for row in allImagePath:
         imagePath = row[0]
-        print "Checking image path: %s" % (imagePath)
-        lastSlashIndex = imagePath.rfind('\\')
-        if lastSlashIndex > -1:
-            processName = imagePath[lastSlashIndex + 1:].lower()
-            print "     processName:" + processName
-            if PROCESS_IMAGE_PATH_SUFFIX.has_key(processName):
-                processSuffix = PROCESS_IMAGE_PATH_SUFFIX[processName]
-                print "     processSuffix:{processSuffix}".format(processSuffix=processSuffix)
-                print "     endWith:{endWith}".format(endWith=imagePath.endswith(processSuffix))
-                constructPath = (envSystemRoot + processSuffix).lower()
-                constructPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
-                print "     constructPath:{constructPath}".format(constructPath=constructPath)
-                print "     samePath:{samePath}".format(samePath=constructPath == imagePath.lower())
-                print "     samePath2:{samePath}".format(samePath=constructPathSystemRoot == imagePath.lower())
+        # print "Checking image path: %s" % (imagePath)
+        pathSplit = imagePath.split('\\')
+        processName = pathSplit[len(pathSplit) - 1].lower()
+        # print "     processName:" + processName
+        if PROCESS_IMAGE_PATH_SUFFIX.has_key(processName):
+            processSuffix = PROCESS_IMAGE_PATH_SUFFIX[processName]
+            # print "     processSuffix:{processSuffix}".format(processSuffix=processSuffix)
+            # print "     endWith:{endWith}".format(endWith=imagePath.endswith(processSuffix))
+            # windows path case insensitive
+            fullPathEnv = (envSystemRoot + processSuffix).lower()
+            fullPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
+            # print "     fullPathEnv:{fullPathEnv}".format(fullPathEnv=fullPathEnv)
+            # print "     samePath:{samePath}".format(samePath=fullPathEnv == imagePath.lower())
+            # print "     samePath2:{samePath}".format(samePath=fullPathSystemRoot == imagePath.lower())
 
-                if constructPath != imagePath.lower() and constructPathSystemRoot != imagePath.lower():
-                    validImagePath = False
-                    break
+            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe"
+            if fullPathEnv != imagePath.lower() and fullPathSystemRoot != imagePath.lower():
+                invalidImagePathList.append(imagePath)
 
-    print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
 
-    # todo, write to file like run_sans_tests
+    path = comargs["dest"] + os.sep
+    outfile = "{path}ES{number}_report.txt".format(path=path,
+                                                   number=comargs["es"])
+
+    # todo, centralize the message and write file function
+    with open(outfile, "at") as freport:
+        title = "Running image path test.\n"
+        freport.write(title)
+        freport.write("-" * len(title) + '\n')
+
+        # print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
+        if len(invalidImagePathList) != 0 :
+            for invalidPath in invalidImagePathList:
+                # print "===invalidImagePathList"
+                # print invalidImagePathList
+                freport.write("Invalid image path: %s.\n" % (invalidPath))
+        else :
+            freport.write("No rogue process found. \n")
+        freport.write("\n")
+
 
 
 def run_user_account_tests(comargs):
-    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path
+    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check the process which should have "User Account: Local System"
     """
     path = args["dest"] + os.sep
     dbfile = "{path}ES{number}.db".format(path=path,
@@ -515,41 +528,73 @@ def run_user_account_tests(comargs):
     dbconn = sqlite3.connect(dbfile)
     localSystemDBCursor = dbconn.cursor()
 
-    print "++++LOCAL_SYSTEM_ACCOUNT_PROCESS:{LOCAL_SYSTEM_ACCOUNT_PROCESS}".format(LOCAL_SYSTEM_ACCOUNT_PROCESS=LOCAL_SYSTEM_ACCOUNT_PROCESS)
+    # print "++++LOCAL_SYSTEM_ACCOUNT_PROCESS:{LOCAL_SYSTEM_ACCOUNT_PROCESS}".format(LOCAL_SYSTEM_ACCOUNT_PROCESS=LOCAL_SYSTEM_ACCOUNT_PROCESS)
+    processQueryStr = getProcessQueryString()
+    # print "++++processQueryStr={processQueryStr}".format(processQueryStr=processQueryStr)
+    localSystemQuery = "select distinct Process from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
+    # query = "select distinct Process from GetSIDs where Process in {process}".format(process=processQueryStr)
+    # print "++++localSystemQuery=" + localSystemQuery
+    localSystemDBCursor.execute(localSystemQuery)
+    dbconn.commit()
+
+    localSystemResult = localSystemDBCursor.fetchall()
+    localSystemCount = len(localSystemResult)
+    # print "===Count==="
+    # print localSystemResult
+    # print localSystemCount
+
+
+    processDBCursor = dbconn.cursor()
+    processQuery = "select distinct Process from GetSIDs where Process in {process} ".format(process=processQueryStr)
+    processDBCursor.execute(processQuery)
+    dbconn.commit()
+    processResult = processDBCursor.fetchall()
+    processCount = len(processResult)
+    # print "===Count2==="
+    # print processResult
+    # print processCount
+    #
+    # if localSystemCount == processCount :
+    #     print "===equal==="
+    # else :
+    #     print "===not equal==="
+    #     print repr(set(processResult) - set(localSystemResult))
+
+
+    path = comargs["dest"] + os.sep
+    outfile = "{path}ES{number}_report.txt".format(path=path,
+                                                   number=comargs["es"])
+    with open(outfile, "at") as freport:
+        title = "Running check for User Account: Local System.\n"
+        freport.write(title)
+        freport.write("-" * len(title) + '\n')
+
+        # print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
+        if localSystemCount != processCount:
+            diffProcessSet = set(processResult) - set(localSystemResult)
+            for diffProcess in diffProcessSet :
+                # print "===invalidImagePathList"
+                # print invalidImagePathList
+                freport.write("Invalid process: %s.\n" % diffProcess)
+        else :
+            freport.write("No rogue process found. \n")
+        freport.write("\n")
+
+
+
+def getProcessQueryString():
+    """
+    Construct string used in query, like:
+        ("smss.exe", ..., "lsass.exe")
+    :return:
+    """
     processStr = repr(LOCAL_SYSTEM_ACCOUNT_PROCESS)
     processQueryList = list(processStr)
     processQueryList[0] = '('
     processQueryList[len(processQueryList) - 1] = ')'
     processQueryStr = ''.join(processQueryList)
-    print "++++processQueryStr={processQueryStr}".format(processQueryStr=processQueryStr)
-    localSystemQuery = "select count(distinct Process) from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
-    # query = "select distinct Process from GetSIDs where Process in {process}".format(process=processQueryStr)
-    print "++++localSystemQuery=" + localSystemQuery
-    localSystemDBCursor.execute(localSystemQuery)
-    dbconn.commit()
-    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
-    # Need to use fetchall to get all rows ahead.
-    localSystemCountResult = localSystemDBCursor.fetchall()
-    print "===Count==="
-    print localSystemCountResult
-    print localSystemCountResult[0][0]
 
-
-    processDBCursor = dbconn.cursor()
-    processQuery = "select count(distinct Process) from GetSIDs where Process in {process} ".format(process=processQueryStr)
-    processDBCursor.execute(processQuery)
-    dbconn.commit()
-    processCountResult = processDBCursor.fetchall()
-    print "===Count2==="
-    print processCountResult
-    print processCountResult[0][0]
-
-    if localSystemCountResult[0][0] == processCountResult[0][0] :
-        print "===equal==="
-    else :
-        print "===not equal==="
-
-    # todo, write to file like run_sans_tests
+    return processQueryStr
 
 
 def dump(comargs):
