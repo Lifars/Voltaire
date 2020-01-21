@@ -459,7 +459,6 @@ def run_image_path_tests(comargs):
     querySystemRoot = "select distinct Value from Envars where LOWER(Variable) = 'systemroot'"
     envSystemRootResult = envDBCursor.execute(querySystemRoot).fetchall()
     dbconn.commit()
-    # print "envSystemRoot[0]===="
     if not envSystemRootResult :
         print "Error: not find environment variable SystemRoot"
         return
@@ -471,47 +470,33 @@ def run_image_path_tests(comargs):
     exeDBCursor.execute(exeQuery)
     dbconn.commit()
     allImagePath = exeDBCursor.fetchall()
-    # print "===allRows==="
-    # print allRows
 
     invalidImagePathList = []
     for row in allImagePath:
         imagePath = row[0]
-        # print "Checking image path: %s" % (imagePath)
         pathSplit = imagePath.split('\\')
         processName = pathSplit[len(pathSplit) - 1].lower()
-        # print "     processName:" + processName
         if PROCESS_IMAGE_PATH_SUFFIX.has_key(processName):
             processSuffix = PROCESS_IMAGE_PATH_SUFFIX[processName]
-            # print "     processSuffix:{processSuffix}".format(processSuffix=processSuffix)
-            # print "     endWith:{endWith}".format(endWith=imagePath.endswith(processSuffix))
             # windows path case insensitive
             fullPathEnv = (envSystemRoot + processSuffix).lower()
             fullPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
-            # print "     fullPathEnv:{fullPathEnv}".format(fullPathEnv=fullPathEnv)
-            # print "     samePath:{samePath}".format(samePath=fullPathEnv == imagePath.lower())
-            # print "     samePath2:{samePath}".format(samePath=fullPathSystemRoot == imagePath.lower())
 
             # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe"
             if fullPathEnv != imagePath.lower() and fullPathSystemRoot != imagePath.lower():
                 invalidImagePathList.append(imagePath)
 
-
-    path = comargs["dest"] + os.sep
+    # todo, centralize the message and write file function
+    # write result to file    path = comargs["dest"] + os.sep
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
-
-    # todo, centralize the message and write file function
     with open(outfile, "at") as freport:
         title = "Running image path test.\n"
         freport.write(title)
         freport.write("-" * len(title) + '\n')
 
-        # print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
         if len(invalidImagePathList) != 0 :
             for invalidPath in invalidImagePathList:
-                # print "===invalidImagePathList"
-                # print invalidImagePathList
                 freport.write("Invalid image path: %s.\n" % (invalidPath))
         else :
             freport.write("No rogue process found. \n")
@@ -528,20 +513,13 @@ def run_user_account_tests(comargs):
     dbconn = sqlite3.connect(dbfile)
     localSystemDBCursor = dbconn.cursor()
 
-    # print "++++LOCAL_SYSTEM_ACCOUNT_PROCESS:{LOCAL_SYSTEM_ACCOUNT_PROCESS}".format(LOCAL_SYSTEM_ACCOUNT_PROCESS=LOCAL_SYSTEM_ACCOUNT_PROCESS)
     processQueryStr = getProcessQueryString()
-    # print "++++processQueryStr={processQueryStr}".format(processQueryStr=processQueryStr)
     localSystemQuery = "select distinct Process from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
-    # query = "select distinct Process from GetSIDs where Process in {process}".format(process=processQueryStr)
-    # print "++++localSystemQuery=" + localSystemQuery
     localSystemDBCursor.execute(localSystemQuery)
     dbconn.commit()
 
     localSystemResult = localSystemDBCursor.fetchall()
     localSystemCount = len(localSystemResult)
-    # print "===Count==="
-    # print localSystemResult
-    # print localSystemCount
 
 
     processDBCursor = dbconn.cursor()
@@ -550,17 +528,8 @@ def run_user_account_tests(comargs):
     dbconn.commit()
     processResult = processDBCursor.fetchall()
     processCount = len(processResult)
-    # print "===Count2==="
-    # print processResult
-    # print processCount
-    #
-    # if localSystemCount == processCount :
-    #     print "===equal==="
-    # else :
-    #     print "===not equal==="
-    #     print repr(set(processResult) - set(localSystemResult))
 
-
+    # write result to file
     path = comargs["dest"] + os.sep
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
@@ -569,12 +538,9 @@ def run_user_account_tests(comargs):
         freport.write(title)
         freport.write("-" * len(title) + '\n')
 
-        # print "++++validImagePath:{validImagePath}".format(validImagePath=validImagePath)
         if localSystemCount != processCount:
             diffProcessSet = set(processResult) - set(localSystemResult)
             for diffProcess in diffProcessSet :
-                # print "===invalidImagePathList"
-                # print invalidImagePathList
                 freport.write("Invalid process: %s.\n" % diffProcess)
         else :
             freport.write("No rogue process found. \n")
