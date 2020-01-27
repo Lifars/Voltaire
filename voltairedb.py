@@ -497,16 +497,21 @@ def run_image_path_tests(comargs):
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
     with open(outfile, "at") as freport:
-        title = "Running image path test.\n"
-        freport.write(title)
+        title = "Running image path test."
+        freport.write(title + "\n")
         freport.write("-" * len(title) + '\n')
+        print title
+        print "-" * len(title)
 
         if len(invalidImagePathList) != 0 :
             for invalidPath in invalidImagePathList:
                 freport.write("Invalid image path: %s.\n" % (invalidPath))
+                print "Invalid image path: %s.\n" % (invalidPath)
         else :
             freport.write("No rogue process found. \n")
+            print "No rogue process found."
         freport.write("\n")
+        print""
 
 
 
@@ -540,18 +545,22 @@ def run_user_account_tests(comargs):
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
     with open(outfile, "at") as freport:
-        title = "Running check for User Account: Local System.\n"
-        freport.write(title)
+        title = "Running check for User Account: Local System."
+        freport.write(title + "\n")
         freport.write("-" * len(title) + '\n')
+        print title
+        print "-" * len(title)
 
         if localSystemCount != processCount:
             diffProcessSet = set(processResult) - set(localSystemResult)
             for diffProcess in diffProcessSet :
                 freport.write("Invalid process: %s.\n" % diffProcess)
+                print "Invalid process: %s.\n" % diffProcess
         else :
             freport.write("No rogue process found. \n")
+            print "No rogue process found."
         freport.write("\n")
-
+        print ""
 
 
 def getProcessQueryString():
