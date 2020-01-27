@@ -111,7 +111,6 @@ def individual_scan(comargs, command):
 
 def scan(comargs):
     global PROGRAM
-    is_valid(comargs)
 
     # TODO, paramize number of executors
     pool = Pool(4)
@@ -146,12 +145,19 @@ def is_valid(args):
     args["src"] = "\"{path}\"".format(path=os.path.abspath(args["src"]))
     args["dest"] = os.path.abspath(args["dest"])
     if "src" in args:
-        print "Source file: \"{src}\"".format(src=args["src"])
+        print "Source file: {src}".format(src=args["src"])
     if "dest" in args:
         if not os.path.exists(args["dest"]):
             os.makedirs(args["dest"])
         print "Destination directory: {dest}".format(dest=args["dest"])
-    if "profile" in args:
+    is_valid_profile(args)
+    if "es" in args:
+        print "ES: {es}".format(es=args["es"])
+    else:
+        print "NOTICE: No ES set. Defaulting to ES=1."
+
+def is_valid_profile(args):
+    if "profile" in args and args["profile"] is not None:
         if args["profile"] in VALID_PROFILES:
             print "Profile name: {profile}".format(profile=args["profile"])
         else:
@@ -159,10 +165,7 @@ def is_valid(args):
             sys.exit(1)
     else:
         print "WARNING: No profile set!"
-    if "es" in args:
-        print "ES: {es}".format(es=args["es"])
-    else:
-        print "NOTICE: No ES set. Defaulting to ES=1."
+
 
 def run_command(args, executable, command, pid):
     path = args["dest"] + os.sep
@@ -177,14 +180,14 @@ def run_command(args, executable, command, pid):
     command_with_flag = command
     outlog = open(args["log"], "at")
     if "profile" in args:
-        params = "-f \"{src}\" --profile={profile} {command} {destflag}\"{dest}\""
+        params = "-f {src} --profile={profile} {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                profile=args["profile"],
                                command=command_with_flag,
                                destflag=outflag,
                                dest=outfile)
     else:
-        params = "-f \"{src}\" {command} {destflag}\"{dest}\""
+        params = "-f {src} {command} {destflag}\"{dest}\""
         params = params.format(src=args["src"],
                                command=command_with_flag,
                                destflag=outflag,
@@ -213,7 +216,7 @@ def export_autorun(args):
     print "Starting exporting autorun keys."
     outlog.write("Starting exporting autorun keys.\n")
     if "profile" in args:
-        params = "-f \"{src}\" --profile={profile} " + \
+        params = "-f {src} --profile={profile} " + \
                  "printkey -K \"software\\microsoft\\windows" + \
                  "\\currentversion\\run\" " + \
                  "--output=text --output-file={dest}"
@@ -221,7 +224,7 @@ def export_autorun(args):
                                profile=args["profile"],
                                dest=outfile)
     else:
-        params = "-f \"{src}\" printkey -K \"software\\microsoft\\windows" + \
+        params = "-f {src} printkey -K \"software\\microsoft\\windows" + \
                  "\\currentVersion\\run\" " + \
                  "--output=text --output-file={dest}"
         params = params.format(src=args["src"],
@@ -483,7 +486,7 @@ def run_image_path_tests(comargs):
             fullPathEnv = (envSystemRoot + processSuffix).lower()
             fullPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
 
-            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe" or "\??\C:\WINDOWS\system32\csrss.exe"
+            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe" or "\??\C:\WINDOWS\system32\csrss.exe" ("??" stands for device)
             if not imagePath.lower().endswith(fullPathEnv) \
                     and not imagePath.lower().endswith(fullPathSystemRoot):
                 invalidImagePathList.append(imagePath)
@@ -577,7 +580,6 @@ def dump(comargs):
                "dumps" + os.sep + \
                "ES%s"%(comargs["es"])
     comargs["dest"] = dump_dir
-    is_valid(comargs)
     cliargs = "procdump -f %s --profile=%s " % \
               (comargs["src"],
                comargs["profile"])
@@ -600,7 +602,7 @@ def detect_profile(program, comargs):
     """
     print "Attempting automatic detection of the image profile."
     tempoutput = tempfile.TemporaryFile("rwt")
-    params = "imageinfo -f \"{src}\"".format(src=comargs['src'])
+    params = "imageinfo -f {src}".format(src=comargs['src'])
     result = call("{program} {params}".format(program=program,
                                               params=params),
                   shell=True, stdout=tempoutput)
@@ -643,6 +645,7 @@ def detect_profile(program, comargs):
             valid = True
         print "Please select a profile."
     comargs["profile"] = profiles[int(choice)-1].lstrip().rstrip()
+    is_valid_profile(comargs)
     return True
 
 # Main
@@ -681,6 +684,7 @@ if __name__ == "__main__":
     dump_parser.add_argument("-e", "--es",
                              help="ES number", default=1, required=False)
     args = vars(parser.parse_args())
+    is_valid(args)
     subcommand = args.get("which", "")
     if subcommand == "scan":
         if args["profile"] is None:
