@@ -19,7 +19,7 @@ function usage()
     echo "    <source>     : image source to be analyzed."
     echo "    <destination>: output directory."
     echo "    <profile>    : Volatility image profile identification."
-    echo "    <command>    : [scan|process] voltaire arguments."
+    echo "    <command>    : [scan|dump] voltaire arguments."
     echo "    <case>       : evidence number (ESXX)."
     echo "    -e           : if used, will encrypt database file."
     echo
