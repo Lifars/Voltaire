@@ -14,7 +14,7 @@ voltaire="voltairedb.py"
 # description: display usage.
 function usage()
 {
-    echo "usage: ${0} -s <source> -d <destination> -p <profile> -r <command> -c <case> [-e]"
+    echo "usage: ${0} -s <source> -d <destination> -p <profile> -r <command> -c <case> [-e|-n]"
     echo
     echo "    <source>     : image source to be analyzed."
     echo "    <destination>: output directory."
@@ -22,6 +22,7 @@ function usage()
     echo "    <command>    : [scan|dump] voltaire arguments."
     echo "    <case>       : evidence number (ESXX)."
     echo "    -e           : if used, will encrypt database file."
+    echo "    -n           : if used, will specify number of processes to scan simultaneously, by defaut 4."
     echo
 
     exit 1
@@ -164,12 +165,13 @@ function main()
     encrypt="false"
     destination="output"
     profile=""
+    processes=4
     evidence="01"
     run="scan"
     options=()
 
     # get args from caller
-    while getopts "s:d:p:c:r:e" option; do
+    while getopts "s:d:p:c:r:n:e" option; do
         case "${option}" in
         s)
             source="${OPTARG}" ;;
@@ -181,6 +183,8 @@ function main()
             evidence="${OPTARG}" ;;
         r)
             run="${OPTARG}" ;;
+        n)
+            processes="${OPTARG}" ;;
         e)
             encrypt="true" ;;
         *)
@@ -207,6 +211,10 @@ function main()
 
     if [ ! -z "${profile}" ]; then
         options+=("-p" "${profile}")
+    fi
+
+    if [ ! -z "${processes}" ]; then
+        options+=("-n" "${processes}")
     fi
 
     python2 "${PWD}/${voltaire}" "${options[@]}"

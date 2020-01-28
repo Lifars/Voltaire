@@ -112,8 +112,9 @@ def individual_scan(comargs, command):
 def scan(comargs):
     global PROGRAM
 
-    # TODO, paramize number of executors
-    pool = Pool(4)
+    numOfProcesses = comargs["processes"]
+    print "Scan with {processes} processes simultaneously".format(processes=numOfProcesses)
+    pool = Pool(int(numOfProcesses))
     for command in COMMANDS:
         pool.apply_async(run_command, (comargs, PROGRAM, command, None))
     pool.close()
@@ -676,6 +677,10 @@ if __name__ == "__main__":
     scan_parser.add_argument("-l", "--log",
                              help="Log file (captures output)",
                              default="voltaire.log",
+                             required=False)
+    scan_parser.add_argument("-n", "--processes",
+                             help="Number of processes to scan simultaneously",
+                             default=4,
                              required=False)
     dump_parser = sub_parsers.add_parser("dump")
     dump_parser.set_defaults(which="dump")
