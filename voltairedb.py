@@ -47,6 +47,7 @@ SANS_TEST = {"Win2003": (("svchost.exe", "svchost.exe", "services.exe"),
                          ("lsm.exe", "lsm.exe", "wininit.exe"),
                          ("explorer.exe", "explorer.exe", "<unknown>"))}
 # Map of <Process, Normal image path suffix>
+# based on https://digital-forensics.sans.org/media/SANS_Poster_2018_Hunt_Evil_FINAL.pdf
 PROCESS_IMAGE_PATH_SUFFIX = {"smss.exe": "\system32\smss.exe",
               "wininit.exe": "\system32\wininit.exe",
               "runtimebroker.exe": "\system32\runtimebroker.exe",
@@ -82,8 +83,9 @@ VALID_PROFILES = dict.fromkeys(
      "Win8SP1x64", "Win8SP1x64_18340", "Win8SP1x86", "WinXPSP1x64", "WinXPSP2x64",
      "WinXPSP2x86", "WinXPSP3x86"])
 # Commands to run
-# todo Scan apihooks quicker by -Q / --quick
-# https://github.com/volatilityfoundation/volatility/raw/gh-pages/docs/VolatilityCheatSheet.pdf
+# Scan apihooks is the slowest scan, we make it fast by option -Q / --quick,
+# which only scan some critical dlls.
+# https://github.com/volatilityfoundation/volatility/blob/master/volatility/plugins/malware/apihooks.py#L361
 COMMANDS = ["apihooks", "amcache", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
@@ -546,7 +548,7 @@ def run_user_account_tests(comargs):
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
     with open(outfile, "at") as freport:
-        title = "Running check for User Account: Local System."
+        title = "Checking \"User Account: Local System.\""
         freport.write(title + "\n")
         freport.write("-" * len(title) + '\n')
         print title
