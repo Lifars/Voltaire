@@ -633,7 +633,12 @@ def detect_profile(program, comargs):
         # imageinfo could not identify at least one profile. Abort.
         return False
     inst_index = profline.find("(Instantiated")
-    profline = profline[33:inst_index]
+    if inst_index == -1:
+        # when there is no "(Instantiated", get string to the end
+        profline = profline[33:]
+    else:
+        profline = profline[33:inst_index]
+    print "profline2={profline}".format(profline=profline)
     profiles = profline.split(",")
     if profiles == []:
         return False
