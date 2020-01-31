@@ -13,61 +13,19 @@ import networkx as nx
 from distutils.spawn import find_executable
 from multiprocessing import Pool
 
+from sans_check_image_path import check_image_path
+from sans_check_parent import check_parent
+
 # Global variables
 # OS we are using
+from sans_check_user_account import check_user_account
+
 IS_WINDOWS = _platform == "win32"
 
 PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
                                      else find_executable('vol.py') # automatically find vol.py
 
-# SANS Test
-# Each entry is indexed by "Applicable profile", and is
-# "test name", "process name", "expected name".
-# It checks that all processes called "process name" have a parent named
-# "expected name". If a process has no parent, the parent name should be
-# "<unknown>".
-# "Applicable profile" is a partial match ("WinXP" will match all profiles
-# for WinXP (WinXPSP0x86, WinXPSP1x86, ...)).
-# Note that all entries are lowercased.
 
-SANS_TEST = {"Win2003": (("svchost.exe", "svchost.exe", "services.exe"),
-                         ("System", "system", "<unknown>"),
-                         ("smss.exe", "smss.exe", "system")),
-             "WinXP": (("svchost.exe", "svchost.exe", "services.exe"),
-                       ("System", "system", "<unknown>"),
-                       ("smss.exe", "smss.exe", "system")),
-             "Win2008": (("System", "system", ""),
-                         ("svchost.exe", "svchost.exe", "services.exe"),
-                         ("wininit.exe", "wininit.exe", "<unknown>"),
-                         ("taskhost.exe", "taskhost.exe", "services.exe"),
-                         ("lsass.exe", "lsass.exe", "wininit.exe"),
-                         ("winlogon.exe", "winlogon.exe", "<unknown>"),
-                         ("csrss.exe", "csrss.exe", "<unknown>"),
-                         ("services.exe", "services.exe", "wininit.exe"),
-                         ("lsm.exe", "lsm.exe", "wininit.exe"),
-                         ("explorer.exe", "explorer.exe", "<unknown>"))}
-# Map of <Process, Normal image path suffix>
-# based on https://digital-forensics.sans.org/media/SANS_Poster_2018_Hunt_Evil_FINAL.pdf
-PROCESS_IMAGE_PATH_SUFFIX = {"smss.exe": "\system32\smss.exe",
-              "wininit.exe": "\system32\wininit.exe",
-              "runtimebroker.exe": "\system32\runtimebroker.exe",
-              "taskhostw.exe": "\system32\taskhostw.exe",
-              "winlogon.exe": "\system32\winlogon.exe",
-              "csrss.exe": "\system32\csrss.exe",
-              "services.exe": "\system32\services.exe",
-              "svchost.exe": "\system32\svchost.exe",
-              "lsaiso.exe": "\system32\lsaiso.exe",
-              "lsass.exe": "\system32\lsass.exe",
-              "explorer.exe": "\explorer.exe"
-              }
-# Process, whose normal user account: Local System
-LOCAL_SYSTEM_ACCOUNT_PROCESS = ["smss.exe",
-                                "wininit.exe",
-                                "winlogon.exe",
-                                "csrss.exe",
-                                "services.exe",
-                                "lsaiso.exe",
-                                "lsass.exe"]
 
 # Valid profiles
 # Based on https://github.com/volatilityfoundation/volatility/blob/master/README.txt#L170
@@ -323,263 +281,6 @@ def dump_malfind(comargs):
             dbconn.commit()
             os.unlink(dfiles[0])
         os.rmdir(output)
-def build_process_tree(comargs):
-    """ Returns a networkx directed graph with the process hierarchhy in it.
-    """
-    path = comargs["dest"] + os.sep
-    dbfile = "{path}ES{number}.db".format(path=path,
-                                          number=comargs["es"])
-    dbconn = sqlite3.connect(dbfile)
-    dbcursor = dbconn.cursor()
-    query = "SELECT Pid, PPid, Name from PsTree"
-    results = dbcursor.execute(query)
-    # Check what field goes where
-    nfield = 0
-    index_pid = -1
-    index_ppid = -1
-    index_name = -1
-    for field in dbcursor.description:
-        if field[0] == "Name":
-            index_name = nfield
-        elif field[0] == "Pid":
-            index_pid = nfield
-        elif field[0] == "PPid":
-            index_ppid = nfield
-        nfield += 1
-    proctree = nx.DiGraph()
-    # Do work in two passes
-    # 1) create all nodes
-    # 2) create all edges (and add the missing nodes with "<unknown>" as the
-    #    name
-    reslist = results.fetchall()
-    for row in reslist:
-        procpid = row[index_pid]
-        procname = row[index_name]
-        proctree.add_node(procpid, name=procname.lower())
-    for row in reslist:
-        procpid = row[index_pid]
-        procppid = row[index_ppid]
-        if procppid not in proctree:
-            proctree.add_node(procppid, name="<unknown>")
-        proctree.add_edge(procppid, procpid)
-    return proctree
-
-def run_sans_tests(comargs):
-    """ Uses the SANS 'Know Normal - Find Evil' criterion.
-    """
-    proctree = build_process_tree(comargs)
-    path = comargs["dest"] + os.sep
-    outfile = "{path}ES{number}_report.txt".format(path=path,
-                                                   number=comargs["es"])
-    suspiciouspid = []
-    with open(outfile, "at") as freport:
-        freport.write("SANS 'Know Normal ... Find Evil'\n")
-        freport.write("********************************\n\n")
-        # Find right set of tests
-        for proftest in SANS_TEST.keys():
-            if comargs['profile'].find(proftest) > -1:
-                seltests = proftest
-                freport.write("Running tests for %s.\n\n"%(seltests))
-                break
-        if seltests is None:
-            freport.write("No test found for %s.\n\n"%(comargs['profile']))
-            return
-        for indtest in SANS_TEST[seltests]:
-            tname, procname, pparname = indtest
-            title = "Running %s test.\n" % (tname)
-            freport.write(title)
-            freport.write("-"*len(title)+'\n')
-            roguefound = False
-            for nodeid in proctree.nodes():
-                if proctree.node[nodeid]['name'] == procname:
-                    # Check parent's name (predecessors returns an iterable)
-                    for ppid in proctree.predecessors(nodeid):
-                        if proctree.node[ppid]['name'] != pparname:
-                            # The parent name does not match what is expected
-                            msg = "Found rogue %s (PID: %s), parent is "
-                            msg += "%s (PID: %s)\n"
-                            freport.write(msg%(proctree.node[nodeid]['name'],
-                                               nodeid,
-                                               proctree.node[ppid]['name'],
-                                               ppid))
-                            if nodeid not in suspiciouspid:
-                                suspiciouspid.append(nodeid)
-                            roguefound = True
-            if not roguefound:
-                freport.write("No rogue process found. \n")
-            freport.write("\n")
-    # Dump the suspicious processes into the database.
-    dbfile = "{path}ES{number}.db".format(path=path,
-                                          number=args["es"])
-    dbconn = sqlite3.connect(dbfile)
-    dbcursor = dbconn.cursor()
-    # Create the table if it does not already exist.
-    query = """create table if not exists procdumps (pid integer primary key,
-                                                     reason text,
-                                                     content blob)"""
-    dbcursor.execute(query)
-    dbconn.commit()
-    for pid in suspiciouspid:
-        print "Dumping process for PID %s" % (pid)
-        output = tempfile.mkdtemp()
-        dumpargs = "--dump-dir=%s" % (output)
-        profargs = "--profile=%s" % (comargs['profile'])
-        srcargs = "-f %s" % (comargs["src"])
-        pidargs = "-p %s" % (pid)
-        scode = call("%s procdump %s %s %s %s"%(PROGRAM,
-                                                profargs,
-                                                srcargs,
-                                                dumpargs,
-                                                pidargs),
-                     shell=True)
-        if scode != 0:
-            print "Dumping process memory for pid %s failed." % (pid)
-        else:
-            # Get all files in the temporary output
-            dfiles = [os.path.join(output, ent) for ent in os.listdir(output) \
-                      if os.path.isfile(os.path.join(output, ent))]
-            if dfiles == []:
-                print "Process not in memory."
-                continue
-            # Insert the dumped file as a blob in the database.
-            dfile = open(dfiles[0], "rb")
-            filec = dfile.read()
-            dfile.close()
-            dbcursor2 = dbconn.cursor()
-            dbcursor2.execute("insert or ignore into procdumps "+
-                              "(pid,reason,content) values (?,'SANSTest',?)",
-                              (pid, sqlite3.Binary(filec)))
-            dbconn.commit()
-            os.unlink(dfiles[0])
-        os.rmdir(output)
-
-def run_image_path_tests(comargs):
-    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check image path of process
-    """
-    path = args["dest"] + os.sep
-    dbfile = "{path}ES{number}.db".format(path=path,
-                                          number=args["es"])
-    dbconn = sqlite3.connect(dbfile)
-    envDBCursor = dbconn.cursor()
-    exeDBCursor = dbconn.cursor()
-    # Get systemroot environment variable
-    querySystemRoot = "select distinct Value from Envars where LOWER(Variable) = 'systemroot'"
-    envSystemRootResult = envDBCursor.execute(querySystemRoot).fetchall()
-    dbconn.commit()
-    if not envSystemRootResult :
-        print "Error: not find environment variable SystemRoot"
-        return
-    envSystemRoot = envSystemRootResult[0][0]
-    print "SystemRoot evironment variable:" + envSystemRoot
-
-    # Get path of all xxxx.exe
-    exeQuery = "select distinct path from DllList where path like \"%.exe\""
-    exeDBCursor.execute(exeQuery)
-    dbconn.commit()
-    allImagePath = exeDBCursor.fetchall()
-
-    invalidImagePathList = []
-    for row in allImagePath:
-        imagePath = row[0]
-        pathSplit = imagePath.split('\\')
-        processName = pathSplit[len(pathSplit) - 1].lower()
-        if PROCESS_IMAGE_PATH_SUFFIX.has_key(processName):
-            processSuffix = PROCESS_IMAGE_PATH_SUFFIX[processName]
-            # windows path case insensitive
-            fullPathEnv = (envSystemRoot + processSuffix).lower()
-            fullPathSystemRoot = ("\SystemRoot" + processSuffix).lower()
-
-            # valid path "c:\windows\system32\smss.exe" or "\systemroot\system32\smss.exe" or "\??\C:\WINDOWS\system32\csrss.exe" ("??" stands for device)
-            if not imagePath.lower().endswith(fullPathEnv) \
-                    and not imagePath.lower().endswith(fullPathSystemRoot):
-                invalidImagePathList.append(imagePath)
-
-    # todo, centralize the message and write file function
-    # write result to file
-    path = comargs["dest"] + os.sep
-    outfile = "{path}ES{number}_report.txt".format(path=path,
-                                                   number=comargs["es"])
-    with open(outfile, "at") as freport:
-        title = "Running image path test."
-        freport.write(title + "\n")
-        freport.write("-" * len(title) + '\n')
-        print title
-        print "-" * len(title)
-
-        if len(invalidImagePathList) != 0 :
-            for invalidPath in invalidImagePathList:
-                freport.write("Invalid image path: %s.\n" % (invalidPath))
-                print "Invalid image path: %s.\n" % (invalidPath)
-        else :
-            freport.write("No rogue process found. \n")
-            print "No rogue process found."
-        freport.write("\n")
-        print""
-
-
-
-def run_user_account_tests(comargs):
-    """ Uses the SANS 'Know Normal - Find Evil' criterion, to check the process which should have "User Account: Local System"
-    """
-    path = args["dest"] + os.sep
-    dbfile = "{path}ES{number}.db".format(path=path,
-                                          number=args["es"])
-    dbconn = sqlite3.connect(dbfile)
-    localSystemDBCursor = dbconn.cursor()
-
-    # get distinct process name which is in LOCAL_SYSTEM_ACCOUNT_PROCESS and name="Local System"
-    processQueryStr = getProcessQueryString()
-    localSystemQuery = "select distinct Process from GetSIDs where Process in {process} and lower(name) = 'local system'".format(process=processQueryStr)
-    localSystemDBCursor.execute(localSystemQuery)
-    dbconn.commit()
-    localSystemResult = localSystemDBCursor.fetchall()
-    localSystemCount = len(localSystemResult)
-
-    # get distinct process name which is in LOCAL_SYSTEM_ACCOUNT_PROCESS
-    processDBCursor = dbconn.cursor()
-    processQuery = "select distinct Process from GetSIDs where Process in {process} ".format(process=processQueryStr)
-    processDBCursor.execute(processQuery)
-    dbconn.commit()
-    processResult = processDBCursor.fetchall()
-    processCount = len(processResult)
-
-    # write result to file
-    path = comargs["dest"] + os.sep
-    outfile = "{path}ES{number}_report.txt".format(path=path,
-                                                   number=comargs["es"])
-    with open(outfile, "at") as freport:
-        title = "Checking \"User Account: Local System.\""
-        freport.write(title + "\n")
-        freport.write("-" * len(title) + '\n')
-        print title
-        print "-" * len(title)
-
-        if localSystemCount != processCount:
-            diffProcessSet = set(processResult) - set(localSystemResult)
-            for diffProcess in diffProcessSet :
-                freport.write("Invalid process: %s.\n" % diffProcess)
-                print "Invalid process: %s.\n" % diffProcess
-        else :
-            freport.write("No rogue process found. \n")
-            print "No rogue process found."
-        freport.write("\n")
-        print ""
-
-
-def getProcessQueryString():
-    """
-    Construct string used in query, like:
-        ("smss.exe", ..., "lsass.exe")
-    :return:
-    """
-    processStr = repr(LOCAL_SYSTEM_ACCOUNT_PROCESS)
-    processQueryList = list(processStr)
-    processQueryList[0] = '('
-    processQueryList[len(processQueryList) - 1] = ')'
-    processQueryStr = ''.join(processQueryList)
-
-    return processQueryStr
-
 
 def dump(comargs):
     """ Dumps the process identified by PID from the memory image.
@@ -718,9 +419,9 @@ if __name__ == "__main__":
         scan(args)
         run_text_report(args)
         # Run the SANS tests and dump the offending processes in the DB
-        run_sans_tests(args)
-        run_image_path_tests(args)
-        run_user_account_tests(args)
+        check_parent(args)
+        check_image_path(args)
+        check_user_account(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
