@@ -14,6 +14,7 @@ from multiprocessing import Pool
 
 from sans_check_image_path import check_image_path
 from sans_check_parent import check_parent
+from check_dll_path import check_dll_path
 
 # Global variables
 # OS we are using
@@ -444,6 +445,7 @@ if __name__ == "__main__":
         check_parent(args)
         check_image_path(args)
         check_user_account(args)
+        check_dll_path(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
