@@ -23,6 +23,7 @@ function usage()
     echo "    <case>       : evidence number (ESXX)."
     echo "    -e           : if used, will encrypt database file."
     echo "    -n           : if used, will specify number of processes to scan simultaneously, by defaut 4."
+    echo "    -x           : if used, will specify the commands in comma seperated string, to exclude from running Volatility scan."
     echo
 
     exit 1
@@ -165,13 +166,14 @@ function main()
     encrypt="false"
     destination="output"
     profile=""
+    exclude=""
     processes=4
     evidence="01"
     run="scan"
     options=()
 
     # get args from caller
-    while getopts "s:d:p:c:r:n:e" option; do
+    while getopts "s:d:p:c:r:n:x:e" option; do
         case "${option}" in
         s)
             source="${OPTARG}" ;;
@@ -183,6 +185,8 @@ function main()
             evidence="${OPTARG}" ;;
         r)
             run="${OPTARG}" ;;
+        x)
+            exclude="${OPTARG}" ;;
         n)
             processes="${OPTARG}" ;;
         e)
@@ -215,6 +219,11 @@ function main()
 
     if [ ! -z "${processes}" ]; then
         options+=("-n" "${processes}")
+    fi
+
+    if [ ! -z "${exclude}" ]; then
+        echo "exclude=${exclude}"
+        options+=("--exclude_commands" "${exclude}")
     fi
 
     python2 "${PWD}/${voltaire}" "${options[@]}"

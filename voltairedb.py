@@ -9,7 +9,6 @@ from sys import platform as _platform
 from subprocess import call
 import sqlite3
 import tempfile
-import networkx as nx
 from distutils.spawn import find_executable
 from multiprocessing import Pool
 
@@ -366,6 +365,25 @@ def detect_profile(program, comargs):
     is_valid_profile(comargs)
     return True
 
+def exclude_commands(comargs):
+    """
+    parse comma seperated "exclude_commands" args into exclude_command_list
+    remove exclude_command_list from COMMANDS
+    in order to exclude long-running Volatility scanning
+    :param comargs:
+    :return:
+    """
+    global COMMANDS
+    arg_exclude_commands = comargs.get("exclude_commands")
+    if (arg_exclude_commands is None) :
+        return
+
+    print "Specify exclude commands:{exclude}".format(exclude=arg_exclude_commands)
+    exclude_command_list = arg_exclude_commands.split(",")
+    COMMANDS = filter(lambda  i: i not in exclude_command_list, COMMANDS)
+    print "COMMANDS after exclusion:{COMMANDS}".format(COMMANDS=COMMANDS)
+
+
 # Main
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batches " + \
@@ -390,6 +408,10 @@ if __name__ == "__main__":
                              help="Number of processes to scan simultaneously",
                              default=4,
                              required=False)
+    # scan_parser.add_argument("--exclude-commands", action='append')
+    scan_parser.add_argument("--exclude_commands",
+                             help="Specify the commands need to be excluded from predefined COMMAMDS, in comma seperated string",
+                             required=False)
     dump_parser = sub_parsers.add_parser("dump")
     dump_parser.set_defaults(which="dump")
     dump_parser.add_argument("-s", "--src",
@@ -408,6 +430,7 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     is_valid(args)
     subcommand = args.get("which", "")
+    exclude_commands(args)
     if subcommand == "scan":
         if args["profile"] is None:
             # Profile detection
