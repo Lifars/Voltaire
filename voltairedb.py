@@ -203,7 +203,7 @@ def run_text_report(comargs):
     """ Generates a text report from a few commands. """
     # Report name
     path = args["dest"] + os.sep
-    outfile = "{path}ES{number}_report.txt".format(path=path,
+    outfile = "{path}ES{number}_memory_report.txt".format(path=path,
                                                    number=args["es"])
     outargs = "--output=text"
     profargs = "--profile=%s"%(comargs['profile'])
