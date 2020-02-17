@@ -177,7 +177,7 @@ def build_process_tree(comargs):
 # Example calling from shell:
 #   python sans_check_parent.py  -p WinXPSP1x64 -d /home/sansforensics/Documents/code/Voltaire/output -e 01 -s "/home/sansforensics/Downloads/11420/MEM-APT10-VMWARE.vmsn"
 if __name__ == "__main__":
-    scan_parser = argparse.ArgumentParser(description="Batches common sans_check_parent commands")
+    scan_parser = argparse.ArgumentParser(description="Check if process' parent is wanted, using SANS 'Know Normal - Find Evil' criterion")
 
     scan_parser.add_argument("-s", "--src", help="Input file", required=True)
     scan_parser.add_argument("-d", "--dest", help="Output directory", required=False, default="voltaire")

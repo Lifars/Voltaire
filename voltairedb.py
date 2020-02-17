@@ -408,7 +408,6 @@ if __name__ == "__main__":
                              help="Number of processes to scan simultaneously",
                              default=4,
                              required=False)
-    # scan_parser.add_argument("--exclude-commands", action='append')
     scan_parser.add_argument("--exclude_commands",
                              help="Specify the commands need to be excluded from predefined COMMAMDS, in comma seperated string",
                              required=False)

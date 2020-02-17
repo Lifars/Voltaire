@@ -82,7 +82,7 @@ def getProcessQueryString():
 # Example calling from shell:
 #   python sans_check_user_account.py  -d /home/sansforensics/Documents/code/Voltaire/output -e 01
 if __name__ == "__main__":
-    scan_parser = argparse.ArgumentParser(description="Batches common sans_check_user_account commands")
+    scan_parser = argparse.ArgumentParser(description="Check if processes are \"User Account: Local System\", using SANS 'Know Normal - Find Evil' criterion")
 
     scan_parser.add_argument("-d", "--dest", help="Output directory", required=False, default="voltaire")
     scan_parser.add_argument("-e", "--es", help="ES mode", default=1, required=False)
