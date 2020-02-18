@@ -12,6 +12,7 @@ import tempfile
 from distutils.spawn import find_executable
 from multiprocessing import Pool
 
+from check_network_in_handles import check_network_in_handles
 from sans_check_image_path import check_image_path
 from sans_check_parent import check_parent
 from check_dll_path import check_dll_path
@@ -47,7 +48,7 @@ VALID_PROFILES = dict.fromkeys(
 COMMANDS = ["apihooks", "amcache", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
             "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
-            "dumpregistry", "envars", "filescan", "getsids", "hashdump", "iehistory",
+            "dumpregistry", "envars", "filescan", "getsids", "hashdump", "handles", "iehistory",
             "ldrmodules", "lsadump", "malfind", "messagehooks",
             "modscan", "modules", "mutantscan -s", "netscan",
             "notepad", "pslist", "psscan", "pstree", "psxview", "screenshot",
@@ -339,7 +340,6 @@ def detect_profile(program, comargs):
         profline = profline[33:]
     else:
         profline = profline[33:inst_index]
-    print "profline2={profline}".format(profline=profline)
     profiles = profline.split(",")
     if profiles == []:
         return False
@@ -446,6 +446,7 @@ if __name__ == "__main__":
         check_image_path(args)
         check_user_account(args)
         check_dll_path(args)
+        check_network_in_handles(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
