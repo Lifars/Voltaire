@@ -91,7 +91,7 @@ def check_parent(comargs):
     dbconn = sqlite3.connect(dbfile)
     dbcursor = dbconn.cursor()
     # Create the table if it does not already exist.
-    query = """create table if not exists procdumps_sansparent (pid integer primary key,
+    query = """create table if not exists procdumps (pid integer primary key,
                                                      reason text,
                                                      content blob)"""
     dbcursor.execute(query)
@@ -123,7 +123,7 @@ def check_parent(comargs):
             filec = dfile.read()
             dfile.close()
             dbcursor2 = dbconn.cursor()
-            dbcursor2.execute("insert or ignore into procdumps_sansparent "+
+            dbcursor2.execute("insert or ignore into procdumps "+
                               "(pid,reason,content) values (?,'SANSTest',?)",
                               (pid, sqlite3.Binary(filec)))
             dbconn.commit()

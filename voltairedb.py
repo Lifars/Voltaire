@@ -238,7 +238,7 @@ def dump_malfind(comargs):
     dbconn = sqlite3.connect(dbfile)
     dbcursor = dbconn.cursor()
     # Create the table
-    query = """create table if not exists procdumps_malfind (pid integer primary key,
+    query = """create table if not exists procdumps (pid integer primary key,
                                                      reason text,
                                                      content blob)"""
     dbcursor.execute(query)
@@ -276,7 +276,7 @@ def dump_malfind(comargs):
             filec = dfile.read()
             dfile.close()
             dbcursor2 = dbconn.cursor()
-            dbcursor2.execute("insert into procdumps_malfind "+
+            dbcursor2.execute("insert or ignore into procdumps "+
                               "(pid,reason,content) values (?,'Malfind',?)",
                               (pid, sqlite3.Binary(filec)))
             dbconn.commit()
