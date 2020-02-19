@@ -97,7 +97,7 @@ def check_network_in_handles(comargs) :
             dfile.close()
             dbcursor2 = dbconn.cursor()
             dbcursor2.execute("insert or ignore into procdumps " +
-                              "(pid,reason,content) values (?,'SANSTest',?)",
+                              "(pid,reason,content) values (?,'NetworkCheck',?)",
                               (pid, sqlite3.Binary(filec)))
             dbconn.commit()
             os.unlink(dfiles[0])
