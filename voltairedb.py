@@ -12,6 +12,7 @@ import tempfile
 from distutils.spawn import find_executable
 from multiprocessing import Pool
 
+from check_banished_name import check_banished_name
 from check_network_in_handles import check_network_in_handles
 from sans_check_image_path import check_image_path
 from sans_check_parent import check_parent
@@ -447,6 +448,7 @@ if __name__ == "__main__":
         check_user_account(args)
         check_dll_path(args)
         check_network_in_handles(args)
+        check_banished_name(args)
         # Run Malfind and dumps the offending processes in the DB
         dump_malfind(args)
         #export_autorun(args)
