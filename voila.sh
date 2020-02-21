@@ -21,6 +21,7 @@ function usage()
     echo "    <profile>    : Volatility image profile identification."
     echo "    <command>    : [scan|dump] voltaire arguments."
     echo "    <case>       : evidence number (ESXX)."
+    echo "    -h           : Show usage."
     echo "    -e           : if used, will encrypt database file."
     echo "    -n           : if used, will specify number of processes to scan simultaneously, by defaut 4."
     echo "    -x           : if used, will specify the commands in comma seperated string, to exclude from running Volatility scan."
@@ -173,7 +174,7 @@ function main()
     options=()
 
     # get args from caller
-    while getopts "s:d:p:c:r:n:x:e" option; do
+    while getopts "s:d:p:c:r:n:x:h:e" option; do
         case "${option}" in
         s)
             source="${OPTARG}" ;;
@@ -191,6 +192,8 @@ function main()
             processes="${OPTARG}" ;;
         e)
             encrypt="true" ;;
+        h)
+            usage ;;
         *)
             usage ;;
         esac
