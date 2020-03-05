@@ -49,7 +49,7 @@ def check_banished_name(comargs):
     outfile = "{path}ES{number}_report.txt".format(path=path,
                                                    number=comargs["es"])
     with open(outfile, "at") as freport:
-        title = "Running barnished process name check."
+        title = "Running banished process name check."
         freport.write(title + "\n")
         freport.write("-" * len(title) + '\n')
         print title
