@@ -17,17 +17,28 @@ from check_network_in_handles import check_network_in_handles
 from sans_check_image_path import check_image_path
 from sans_check_parent import check_parent
 from check_dll_path import check_dll_path
-
-# Global variables
-# OS we are using
 from sans_check_user_account import check_user_account
 
-IS_WINDOWS = _platform == "win32"
 
-PROGRAM = os.path.abspath("vol.exe") if IS_WINDOWS \
-                                     else find_executable('vol.py') # automatically find vol.py
+# Get the correct executable
 
+def findVolatility():
+    """ Returns the correct executable based on the OS """
+    if (_platform == "win32"):
+        return os.path.abspath("vol.exe")
+    # If Linux, try "vol.py" and "volatility"
+    linux_exe = find_executable("vol.py")
+    if linux_exe is not None:
+       return linux_exe
+    linux_exe = find_executable("volatility")
+    if linux_exe is None:
+        print("[ERR] Cannot find either 'vol.py' or 'volatility'. Aborting ...")
+        sys.exit(-1)
+    return linux_exe
 
+# Global variables
+
+PROGRAM = findVolatility()
 
 # Valid profiles
 # Based on https://github.com/volatilityfoundation/volatility/blob/master/README.txt#L170
