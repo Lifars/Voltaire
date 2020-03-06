@@ -91,12 +91,10 @@ All Rights Reserved
 https://github.com/Lifars/Voltaire/blob/master/LICENSE
     
     
-## Support & Contact
+## Support
 
-For information or requests, contact:
+This is provided "as is". No specific support will be provided. We will try to answer questions.
 
-LIFARS
+## Contact
 
-Web: https://lifars.com/
-
-Email: contact (at) lifars (dot) com
+For information or requests, visit our website https://lifars.com/
