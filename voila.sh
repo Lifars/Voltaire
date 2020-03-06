@@ -25,7 +25,7 @@ function usage()
     echo "    -e           : if used, will encrypt database file."
     echo "    -n           : if used, will specify number of processes to scan simultaneously, by defaut 4."
     echo "    -x           : if used, will specify the commands in comma separated string, to exclude from running Volatility scan."
-    echo "    -r <command> : 
+    echo "    -r <command> : "
     echo
 
     exit 1
