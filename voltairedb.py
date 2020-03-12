@@ -79,8 +79,8 @@ VALID_PROFILES = dict.fromkeys(
 # https://github.com/volatilityfoundation/volatility/blob/master/volatility/plugins/malware/apihooks.py#L361
 COMMANDS = ["apihooks", "amcache", "atoms", "atomscan", "bigpools", "bioskbd",
             "cachedump", "clipboard", "cmdline", "cmdscan", "consoles",
-            "connscan", "crashinfo", "devicetree", "dlllist", "dumpfiles",
-            "dumpregistry", "envars", "filescan", "getsids", "hashdump", "handles", "iehistory",
+            "connscan", "crashinfo", "devicetree", "dlllist",
+            "envars", "filescan", "getsids", "hashdump", "handles", "iehistory",
             "ldrmodules", "lsadump", "malfind", "messagehooks",
             "modscan", "modules", "mutantscan -s", "netscan",
             "notepad", "pslist", "psscan", "pstree", "psxview", "screenshot",
@@ -96,6 +96,8 @@ NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
 # Title for report and commands that generate a text output
 TEXT_COMMANDS = [("AmCache Listing", "amcache"),
                  ("Malware Finder", "malfind")]
+# Functions that dump objects
+DUMP_COM = ["dumpfiles", "dumpregistry"]
 
 # functions (To move above)
 def scan(comargs):
