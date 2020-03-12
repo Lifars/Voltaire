@@ -1,7 +1,24 @@
 #!/usr/bin/env python
+#
 # voltairedb.py
-# Short rewrite of voltaire.py to make use of the SQLite3 renderer.
+#
+# 2020 LIFARS
+#
 
+# Metadata
+__authors__ = "Jean-Francois Gobin, Yunkai Huang"
+__copyright__ = "Copyright 2020, LIFARS LLC"
+__license__ = "GPLv3"
+__version__ = "202003"
+__maintainer__ = "Jean-Francois Gobin"
+__email__ = "jeanfgobin (at) gmail.com"
+__status__ = "Development"
+
+# Return codes
+#  -1 : volatility executable not found
+#   0 : all OK
+
+# Imports
 import argparse
 import os
 import sys
@@ -19,11 +36,10 @@ from sans_check_parent import check_parent
 from check_dll_path import check_dll_path
 from sans_check_user_account import check_user_account
 
-
+# Functions
 # Get the correct executable
-
 def findVolatility():
-    """ Returns the correct executable based on the OS """
+    """ Returns the correct volatility executable based on the OS """
     if (_platform == "win32"):
         return os.path.abspath("vol.exe")
     # If Linux, try "vol.py" and "volatility"
@@ -36,8 +52,12 @@ def findVolatility():
         sys.exit(-1)
     return linux_exe
 
-# Global variables
+def individual_scan(comargs, command):
+    global PROGRAM
+    run_command(comargs, PROGRAM, command, None)
 
+
+# Global variables
 PROGRAM = findVolatility()
 
 # Valid profiles
@@ -77,14 +97,9 @@ NON_DB_COMS = ["dumpregistry", "filescan", "iehistory", "screenshot",
 TEXT_COMMANDS = [("AmCache Listing", "amcache"),
                  ("Malware Finder", "malfind")]
 
-# Functions
-def individual_scan(comargs, command):
-    global PROGRAM
-    run_command(comargs, PROGRAM, command, None)
-
+# functions (To move above)
 def scan(comargs):
     global PROGRAM
-
     numOfProcesses = comargs["processes"]
     print "Scan with {processes} processes simultaneously".format(processes=numOfProcesses)
     pool = Pool(int(numOfProcesses))
@@ -139,7 +154,6 @@ def is_valid_profile(args):
             sys.exit(1)
     else:
         print "WARNING: No profile set!"
-
 
 def run_command(args, executable, command, pid):
     path = args["dest"] + os.sep
