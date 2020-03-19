@@ -9,7 +9,7 @@
 __authors__ = "Jean-Francois Gobin, Yunkai Huang"
 __copyright__ = "Copyright 2020, LIFARS LLC"
 __license__ = "GPLv3"
-__version__ = "202003"
+__version__ = "202006"
 __maintainer__ = "Jean-Francois Gobin"
 __email__ = "jeanfgobin (at) gmail.com"
 __status__ = "Development"
@@ -51,6 +51,13 @@ def findVolatility():
         print("[ERR] Cannot find either 'vol.py' or 'volatility'. Aborting ...")
         sys.exit(-1)
     return linux_exe
+
+def findClamscan():
+    """ Returns the path to clamscan """
+    if (_platform == "win32"):
+        return os.path.abspath("clamscan.exe")
+    return find_executable("clamscan")
+
 
 def individual_scan(comargs, command):
     global PROGRAM
@@ -273,10 +280,20 @@ def dump_malfind(comargs):
     dbconn.commit()
     query = "select distinct pid from malfind"
     dbcursor.execute(query)
-    # Although directly use "dbcursor.execute(query)" will have better performance, because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct", when works together with dbcursor2 "insert".
+    # Although directly use "dbcursor.execute(query)" will have better performance,
+    # because getting query's rows lazily. It has issue that there will be repeated rows even with "distinct",
+    # when works together with dbcursor2 "insert".
     # Need to use fetchall to get all rows ahead.
     allRows = dbcursor.fetchall()
-
+    # Check if we scan the file with clamscan
+    if args['clamscan']:
+        csCom = findClamscan()
+        if csCom is None:
+            print "Cannot find clamscan!"
+            csScan = False
+        else:
+            print "Using clamscan on dumped process(es)"
+            csScan = True
     for row in allRows:
         pid = row[0]
         print "Dumping process for PID %s" % (pid)
@@ -300,6 +317,11 @@ def dump_malfind(comargs):
             if dfiles == []:
                 print "Process not in memory."
                 continue
+            # First, scan the process
+            if csScan:
+                print "Calling: %s -i %s"%(csCom, dfiles[0])
+                call("%s -i %s"%(csCom, dfiles[0]),
+                     shell=True)
             dfile = open(dfiles[0], "rb")
             filec = dfile.read()
             dfile.close()
@@ -440,6 +462,9 @@ if __name__ == "__main__":
     scan_parser.add_argument("--exclude_commands",
                              help="Specify the commands need to be excluded from predefined COMMAMDS, in comma seperated string",
                              required=False)
+    scan_parser.add_argument("-c", "--clamscan",
+                             help="Run clamscan on the files dumped",
+                             action='store_true')
     dump_parser = sub_parsers.add_parser("dump")
     dump_parser.set_defaults(which="dump")
     dump_parser.add_argument("-s", "--src",
